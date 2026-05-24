@@ -1,0 +1,75 @@
+import React from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext.jsx';
+import styles from './Navbar.module.css';
+
+const influencerLinks = [
+  { to: '/dashboard', label: 'Dashboard', icon: '◈' },
+  { to: '/upload', label: 'Novo Upload', icon: '↑' },
+];
+
+const adminLinks = [
+  { to: '/admin', label: 'Visão Geral', icon: '◈', end: true },
+  { to: '/admin/posts', label: 'Todos os Posts', icon: '▤' },
+  { to: '/admin/users', label: 'Usuários', icon: '◉' },
+];
+
+export default function Navbar() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const links = user?.role === 'admin' ? adminLinks : influencerLinks;
+
+  return (
+    <nav className={styles.sidebar}>
+      {/* Logo */}
+      <div className={styles.logo}>
+        <span className={styles.logoNex}>NEX</span>
+        <span className={styles.logoSub}>Influencer Metrics</span>
+      </div>
+
+      {/* Navigation Links */}
+      <ul className={styles.navList}>
+        {links.map((link) => (
+          <li key={link.to}>
+            <NavLink
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
+              }
+            >
+              <span className={styles.navIcon}>{link.icon}</span>
+              {link.label}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+
+      {/* Bottom: user info + logout */}
+      <div className={styles.bottomSection}>
+        <div className={styles.userInfo}>
+          <div className={styles.userAvatar}>
+            {(user?.display_name || user?.username || 'U')[0].toUpperCase()}
+          </div>
+          <div className={styles.userDetails}>
+            <span className={styles.userName}>
+              {user?.display_name || user?.username}
+            </span>
+            <span className={styles.userRole}>
+              {user?.role === 'admin' ? 'Administrador' : 'Influenciador'}
+            </span>
+          </div>
+        </div>
+        <button className={styles.logoutBtn} onClick={handleLogout}>
+          <span>⏻</span> Sair
+        </button>
+      </div>
+    </nav>
+  );
+}

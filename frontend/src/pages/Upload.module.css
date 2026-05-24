@@ -1,0 +1,90 @@
+.uploadLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .uploadLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.formSection {
+  /* inherits card styles from .card class */
+}
+
+.dropSection {
+  /* Holds dropzone or preview */
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 48px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-height: 280px;
+}
+
+.dropzone:hover {
+  border-color: #bbb;
+  background: #f0f0f0;
+}
+
+.dragActive {
+  border-color: var(--text-primary) !important;
+  background: #FFFBE6 !important;
+  border-style: solid !important;
+}
+
+.uploadIcon {
+  font-size: 48px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: block;
+  line-height: 1;
+}
+
+.dropText {
+  font-size: 15px;
+  font-weight: 600;
+  font-family: Arial, sans-serif;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.dropHint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: Arial, sans-serif;
+}
+
+.previewWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  min-height: 280px;
+  justify-content: center;
+}
+
+.previewImg {
+  width: 100%;
+  max-width: 420px;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}

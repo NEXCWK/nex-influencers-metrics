@@ -1,0 +1,18 @@
+.confidenceRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+@media (max-width: 520px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+}
