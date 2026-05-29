@@ -6,7 +6,7 @@ const client = new Anthropic.default({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 
 const EXTRACTION_PROMPT = `Você é um sistema de extração de métricas de redes sociais.
 

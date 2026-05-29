@@ -69,6 +69,36 @@ async function uploadImage(buffer, mimeType, userId, postId, year, month, ext, i
 }
 
 /**
+ * Uploads a profile avatar. Stored under `avatars/` with a timestamp so the
+ * browser cache is busted whenever the user changes their photo.
+ *
+ * @returns {Promise<string>} The storage path of the uploaded avatar.
+ */
+async function uploadAvatar(buffer, mimeType, userId, ext) {
+  await ensureBucket();
+
+  const path = `avatars/${userId}-${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, buffer, { contentType: mimeType, upsert: true });
+
+  if (error) {
+    throw new Error(`Avatar upload failed: ${error.message}`);
+  }
+
+  return path;
+}
+
+/**
+ * Removes a single stored object (best effort, used for replacing avatars).
+ */
+async function removeFile(path) {
+  if (!path) return;
+  await supabase.storage.from(BUCKET).remove([path]);
+}
+
+/**
  * Generates a signed URL for a private storage object.
  *
  * @param {string} path - The storage path returned by uploadImage.
@@ -122,4 +152,4 @@ async function deleteImage(path) {
   }
 }
 
-module.exports = { uploadImage, getSignedUrl, deleteImage, ensureBucket };
+module.exports = { uploadImage, uploadAvatar, removeFile, getSignedUrl, deleteImage, ensureBucket };

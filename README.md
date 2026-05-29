@@ -90,6 +90,8 @@ create table users (
   display_name text,
   password_hash text,
   role text check (role in ('admin', 'influencer')),
+  bio text,
+  avatar_url text,
   must_change_password boolean default true,
   is_active boolean default true,
   last_login timestamp,
@@ -125,12 +127,46 @@ create table metrics (
   created_at timestamp default now()
 );
 
+create table coupon_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  year integer not null,
+  month integer not null,
+  subscription_count integer default 0,
+  access_count integer default 0,
+  updated_at timestamp default now(),
+  unique (user_id, year, month)
+);
+
 alter table users enable row level security;
 alter table posts enable row level security;
 alter table metrics enable row level security;
+alter table coupon_records enable row level security;
 ```
 
-Crie o bucket `post-prints` como **privado** no painel do Supabase Storage.
+Crie o bucket `post-prints` como **privado** no painel do Supabase Storage
+(o backend o cria automaticamente no primeiro upload, caso não exista).
+
+### Migração — perfil e cupons (rode se o banco já existia antes destas features)
+
+```sql
+-- Perfil: bio e foto
+alter table users add column if not exists bio text;
+alter table users add column if not exists avatar_url text;
+
+-- Cupons: contabilização mensal por influenciador
+create table if not exists coupon_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  year integer not null,
+  month integer not null,
+  subscription_count integer default 0,
+  access_count integer default 0,
+  updated_at timestamp default now(),
+  unique (user_id, year, month)
+);
+alter table coupon_records enable row level security;
+```
 
 ## Deploy (Railway)
 

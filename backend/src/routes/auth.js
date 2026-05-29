@@ -4,6 +4,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const supabase = require('../db/supabase');
+const storage = require('../services/storage');
 const authenticate = require('../middleware/auth');
 
 const router = express.Router();
@@ -25,7 +26,7 @@ router.post('/login', async (req, res, next) => {
     // Fetch user by username
     const { data: user, error: fetchError } = await supabase
       .from('users')
-      .select('id, username, display_name, role, password_hash, must_change_password, is_active')
+      .select('id, username, display_name, role, bio, avatar_url, password_hash, must_change_password, is_active')
       .eq('username', username.trim().toLowerCase())
       .maybeSingle();
 
@@ -61,6 +62,10 @@ router.post('/login', async (req, res, next) => {
       { expiresIn: TOKEN_EXPIRY }
     );
 
+    const avatarSignedUrl = user.avatar_url
+      ? await storage.getSignedUrl(user.avatar_url)
+      : null;
+
     return res.json({
       token,
       user: {
@@ -68,6 +73,8 @@ router.post('/login', async (req, res, next) => {
         username: user.username,
         display_name: user.display_name,
         role: user.role,
+        bio: user.bio || '',
+        avatar_url: avatarSignedUrl,
         must_change_password: user.must_change_password,
       },
       must_change_password: user.must_change_password,
@@ -119,11 +126,17 @@ router.post('/change-password', authenticate, async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.get('/me', authenticate, async (req, res, next) => {
   try {
+    const avatarSignedUrl = req.user.avatar_url
+      ? await storage.getSignedUrl(req.user.avatar_url)
+      : null;
+
     return res.json({
       id: req.user.id,
       username: req.user.username,
       display_name: req.user.display_name,
       role: req.user.role,
+      bio: req.user.bio || '',
+      avatar_url: avatarSignedUrl,
       must_change_password: req.user.must_change_password,
       last_login: req.user.last_login,
     });

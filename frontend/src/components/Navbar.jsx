@@ -5,13 +5,17 @@ import styles from './Navbar.module.css';
 
 const influencerLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: '◈' },
-  { to: '/upload', label: 'Novo Upload', icon: '↑' },
+  { to: '/upload', label: 'Novo Post', icon: '↑' },
+  { to: '/coupons', label: 'Cupons', icon: '🎟️' },
+  { to: '/profile', label: 'Atualizar Perfil', icon: '◐' },
 ];
 
 const adminLinks = [
   { to: '/admin', label: 'Visão Geral', icon: '◈', end: true },
   { to: '/admin/posts', label: 'Todos os Posts', icon: '▤' },
   { to: '/admin/users', label: 'Usuários', icon: '◉' },
+  { to: '/coupons', label: 'Cupons', icon: '🎟️' },
+  { to: '/profile', label: 'Atualizar Perfil', icon: '◐' },
 ];
 
 export default function Navbar() {
@@ -54,9 +58,13 @@ export default function Navbar() {
       {/* Bottom: user info + logout */}
       <div className={styles.bottomSection}>
         <div className={styles.userInfo}>
-          <div className={styles.userAvatar}>
-            {(user?.display_name || user?.username || 'U')[0].toUpperCase()}
-          </div>
+          {user?.avatar_url ? (
+            <img src={user.avatar_url} alt="" className={styles.userAvatarImg} />
+          ) : (
+            <div className={styles.userAvatar}>
+              {(user?.display_name || user?.username || 'U')[0].toUpperCase()}
+            </div>
+          )}
           <div className={styles.userDetails}>
             <span className={styles.userName}>
               {user?.display_name || user?.username}

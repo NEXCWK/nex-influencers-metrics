@@ -11,6 +11,9 @@ const authRouter = require('./routes/auth');
 const postsRouter = require('./routes/posts');
 const metricsRouter = require('./routes/metrics');
 const adminRouter = require('./routes/admin');
+const profileRouter = require('./routes/profile');
+const membersRouter = require('./routes/members');
+const couponsRouter = require('./routes/coupons');
 
 const app = express();
 
@@ -84,6 +87,9 @@ app.use('/auth', authRouter);
 app.use('/posts', postsRouter);
 app.use('/metrics', metricsRouter);
 app.use('/admin', adminRouter);
+app.use('/profile', profileRouter);
+app.use('/members', membersRouter);
+app.use('/coupons', couponsRouter);
 
 // ---------------------------------------------------------------------------
 // 404 handler

@@ -1,0 +1,16 @@
+.subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-family: var(--font);
+  margin-bottom: 20px;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: #888;
+  font-size: 14px;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}

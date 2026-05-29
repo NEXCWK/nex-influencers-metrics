@@ -5,6 +5,7 @@ import PostList from '../components/PostList.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
+import MembersDirectory from '../components/MembersDirectory.jsx';
 import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
 import styles from './Dashboard.module.css';
 
@@ -108,7 +109,12 @@ export default function Dashboard() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      {/* Community directory — active influencers (view-only) */}
+      <h2 className="section-title">Influenciadores Nex</h2>
+      <MembersDirectory />
+
       {/* Metric cards */}
+      <h2 className="section-title" style={{ marginTop: 24 }}>Suas métricas</h2>
       <div className="metrics-grid">
         {loading ? (
           <>

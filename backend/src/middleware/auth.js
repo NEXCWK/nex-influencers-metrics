@@ -28,7 +28,7 @@ async function authenticate(req, res, next) {
 
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, username, display_name, role, must_change_password, is_active, last_login, created_at')
+      .select('id, username, display_name, role, bio, avatar_url, must_change_password, is_active, last_login, created_at')
       .eq('id', payload.id)
       .single();
 

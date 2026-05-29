@@ -11,6 +11,8 @@ import AdminHome from './pages/AdminHome.jsx';
 import AdminInfluencer from './pages/AdminInfluencer.jsx';
 import AdminAllPosts from './pages/AdminAllPosts.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
+import Profile from './pages/Profile.jsx';
+import Coupons from './pages/Coupons.jsx';
 
 // Layout wrapper with Navbar
 import Navbar from './components/Navbar.jsx';
@@ -91,6 +93,24 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Upload />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Shared routes (admin + influencer) */}
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/coupons"
+        element={
+          <ProtectedRoute>
+            <Coupons />
           </ProtectedRoute>
         }
       />
