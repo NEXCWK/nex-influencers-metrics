@@ -41,6 +41,7 @@ export default function MetricConfirmModal({
   postId,
   confidence,
   notes,
+  aiError,
   onConfirm,
   onClose,
 }) {
@@ -56,10 +57,11 @@ export default function MetricConfirmModal({
         init[key] = metrics[key] !== undefined ? String(metrics[key]) : '';
       });
       setValues(init);
-      setEditMode(confidence === 'low');
+      // Open in edit mode when confidence is low or the AI failed entirely.
+      setEditMode(confidence === 'low' || !!aiError);
       setError('');
     }
-  }, [isOpen, metrics, confidence]);
+  }, [isOpen, metrics, confidence, aiError]);
 
   if (!isOpen) return null;
 
@@ -107,8 +109,19 @@ export default function MetricConfirmModal({
           <ConfidenceBadge confidence={confidence} />
         </div>
 
+        {/* AI extraction failed — manual entry required */}
+        {aiError && (
+          <div className="alert alert-error" style={{ marginBottom: 16 }}>
+            ⚠️ A IA não conseguiu analisar os prints automaticamente
+            {/^ANTHROPIC_API_KEY/.test(aiError)
+              ? ' (a chave da Anthropic não está configurada no servidor).'
+              : `: ${aiError}.`}
+            <br />Preencha as métricas manualmente abaixo.
+          </div>
+        )}
+
         {/* Low confidence warning */}
-        {confidence === 'low' && (
+        {confidence === 'low' && !aiError && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>
             ⚠️ A IA não extraiu as métricas com alta confiança. Revise e corrija os valores manualmente antes de confirmar.
           </div>

@@ -208,20 +208,28 @@ router.post(
       // 4. Extract & consolidate metrics from ALL prints with Claude AI
       let aiResult = null;
       let extractionFailed = false;
+      let aiError = null;
 
-      try {
-        aiResult = await ai.extractMetricsFromImages(
-          files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }))
-        );
-
-        // Store raw AI response on the post
-        await supabase
-          .from('posts')
-          .update({ ai_raw_response: aiResult })
-          .eq('id', postId);
-      } catch (aiErr) {
-        console.error('AI extraction error:', aiErr.message);
+      if (!process.env.ANTHROPIC_API_KEY) {
         extractionFailed = true;
+        aiError = 'ANTHROPIC_API_KEY is not configured on the backend';
+        console.error('AI extraction skipped:', aiError);
+      } else {
+        try {
+          aiResult = await ai.extractMetricsFromImages(
+            files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }))
+          );
+
+          // Store raw AI response on the post
+          await supabase
+            .from('posts')
+            .update({ ai_raw_response: aiResult })
+            .eq('id', postId);
+        } catch (aiErr) {
+          console.error('AI extraction error:', aiErr.message);
+          extractionFailed = true;
+          aiError = aiErr.message;
+        }
       }
 
       // 5. Determine if all metric fields are null (needs manual entry)
@@ -241,6 +249,7 @@ router.post(
         confidence: aiResult ? aiResult.confidence : null,
         notes: aiResult ? aiResult.notes : null,
         needs_manual_entry: allNull,
+        ai_error: aiError,
       });
     } catch (err) {
       next(err);

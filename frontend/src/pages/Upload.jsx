@@ -38,6 +38,7 @@ export default function Upload() {
   const [postId, setPostId] = useState(null);
   const [confidence, setConfidence] = useState('medium');
   const [aiNotes, setAiNotes] = useState('');
+  const [aiError, setAiError] = useState('');
 
   // ── Dropzone ─────────────────────────────────────────────────────────────
 
@@ -101,11 +102,12 @@ export default function Upload() {
         timeout: 90000, // up to 90s for analyzing several prints
       });
 
-      const { post_id, metrics_extracted, confidence: conf, notes } = res.data;
+      const { post_id, metrics_extracted, confidence: conf, notes, ai_error } = res.data;
       setPostId(post_id);
       setExtractedMetrics(metrics_extracted || {});
       setConfidence(conf || 'medium');
       setAiNotes(notes || '');
+      setAiError(ai_error || '');
       setModalOpen(true);
     } catch (err) {
       setUploadError(
@@ -264,6 +266,7 @@ export default function Upload() {
         postId={postId}
         confidence={confidence}
         notes={aiNotes}
+        aiError={aiError}
         onConfirm={handleConfirm}
         onClose={() => setModalOpen(false)}
       />
