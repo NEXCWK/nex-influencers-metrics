@@ -26,7 +26,7 @@ router.get('/', async (req, res, next) => {
 
     const { data, error } = await supabase
       .from('coupon_records')
-      .select('subscription_count, access_count, year, month')
+      .select('gallery_count, atrium_count, access_count, year, month')
       .eq('user_id', req.user.id)
       .eq('year', year)
       .eq('month', month)
@@ -40,7 +40,8 @@ router.get('/', async (req, res, next) => {
     return res.json({
       year,
       month,
-      subscription_count: data?.subscription_count ?? 0,
+      gallery_count: data?.gallery_count ?? 0,
+      atrium_count: data?.atrium_count ?? 0,
       access_count: data?.access_count ?? 0,
     });
   } catch (err) {
@@ -55,7 +56,7 @@ router.get('/history', async (req, res, next) => {
   try {
     const { data, error } = await supabase
       .from('coupon_records')
-      .select('year, month, subscription_count, access_count, updated_at')
+      .select('year, month, gallery_count, atrium_count, access_count, updated_at')
       .eq('user_id', req.user.id)
       .order('year', { ascending: false })
       .order('month', { ascending: false });
@@ -92,7 +93,7 @@ router.get('/admin', requireAdmin, async (req, res, next) => {
 
     const { data: records, error: recordsError } = await supabase
       .from('coupon_records')
-      .select('user_id, subscription_count, access_count')
+      .select('user_id, gallery_count, atrium_count, access_count')
       .eq('year', year)
       .eq('month', month);
 
@@ -108,7 +109,8 @@ router.get('/admin', requireAdmin, async (req, res, next) => {
       user_id: inf.id,
       username: inf.username,
       display_name: inf.display_name,
-      subscription_count: byUser[inf.id]?.subscription_count ?? 0,
+      gallery_count: byUser[inf.id]?.gallery_count ?? 0,
+      atrium_count: byUser[inf.id]?.atrium_count ?? 0,
       access_count: byUser[inf.id]?.access_count ?? 0,
     }));
 
@@ -120,14 +122,15 @@ router.get('/admin', requireAdmin, async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // ADMIN: PUT /coupons/admin/:userId — set counts for an influencer/month
-// Body: { year, month, subscription_count, access_count }
+// Body: { year, month, gallery_count, atrium_count, access_count }
 // ---------------------------------------------------------------------------
 router.put('/admin/:userId', requireAdmin, async (req, res, next) => {
   try {
     const { userId } = req.params;
     const year = parseInt(req.body.year, 10);
     const month = parseInt(req.body.month, 10);
-    const subscription = Math.max(0, parseInt(req.body.subscription_count, 10) || 0);
+    const gallery = Math.max(0, parseInt(req.body.gallery_count, 10) || 0);
+    const atrium = Math.max(0, parseInt(req.body.atrium_count, 10) || 0);
     const access = Math.max(0, parseInt(req.body.access_count, 10) || 0);
 
     if (!year || !month || month < 1 || month > 12) {
@@ -155,13 +158,14 @@ router.put('/admin/:userId', requireAdmin, async (req, res, next) => {
           user_id: userId,
           year,
           month,
-          subscription_count: subscription,
+          gallery_count: gallery,
+          atrium_count: atrium,
           access_count: access,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,year,month' }
       )
-      .select('user_id, year, month, subscription_count, access_count')
+      .select('user_id, year, month, gallery_count, atrium_count, access_count')
       .single();
 
     if (error) {

@@ -228,6 +228,34 @@ router.get('/posts', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /admin/posts/:id/prints — all signed print URLs for a post
+// ---------------------------------------------------------------------------
+router.get('/posts/:id/prints', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { data: post, error: fetchError } = await supabase
+      .from('posts')
+      .select('id, image_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Admin get prints fetch error:', fetchError.message);
+      return res.status(500).json({ error: 'Failed to fetch post' });
+    }
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    const prints = await storage.listImages(post.image_url);
+    return res.json({ prints });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // DELETE /admin/posts/:id — delete any post, metrics, and storage image
 // ---------------------------------------------------------------------------
 router.delete('/posts/:id', async (req, res, next) => {

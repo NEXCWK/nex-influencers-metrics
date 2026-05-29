@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import { flattenRanking } from '../utils/normalize.js';
+import { IconUsers, IconDocument, IconSignal, IconMessageCircle } from '../components/Icons.jsx';
 import styles from './AdminHome.module.css';
 
 const MONTHS = [
@@ -116,10 +117,10 @@ export default function AdminHome() {
           <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
         ) : (
           <>
-            <MetricCard label="Influenciadores Ativos" value={overview?.active_influencers ?? 0} icon="👥" />
-            <MetricCard label="Total de Posts" value={overview?.total_posts ?? 0} icon="📄" />
-            <MetricCard label="Alcance Total" value={overview?.aggregate?.reach ?? 0} icon="📡" />
-            <MetricCard label="Engajamento Médio" value={overview?.aggregate?.engagement_rate ?? 0} unit="%" icon="💬" />
+            <MetricCard label="Influenciadores Ativos" value={overview?.active_influencers ?? 0} icon={<IconUsers size={16} />} />
+            <MetricCard label="Total de Posts" value={overview?.total_posts ?? 0} icon={<IconDocument size={16} />} />
+            <MetricCard label="Alcance Total" value={overview?.aggregate?.reach ?? 0} icon={<IconSignal size={16} />} />
+            <MetricCard label="Engajamento Médio" value={overview?.aggregate?.engagement_rate ?? 0} unit="%" icon={<IconMessageCircle size={16} />} />
           </>
         )}
       </div>

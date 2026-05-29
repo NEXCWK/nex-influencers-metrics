@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import PostList from '../components/PostList.jsx';
+import { IconDocument, IconSignal, IconMessageCircle, IconEye } from '../components/Icons.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
@@ -125,26 +126,26 @@ export default function Dashboard() {
             <MetricCard
               label="Total de Posts"
               value={cur.total_posts}
-              icon="📄"
+              icon={<IconDocument size={16} />}
               previousValue={prev.total_posts}
             />
             <MetricCard
               label="Alcance Total"
               value={cur.total_reach}
-              icon="📡"
+              icon={<IconSignal size={16} />}
               previousValue={prev.total_reach}
             />
             <MetricCard
               label="Engajamento Médio"
               value={cur.avg_engagement_rate}
               unit="%"
-              icon="💬"
+              icon={<IconMessageCircle size={16} />}
               previousValue={prev.avg_engagement_rate}
             />
             <MetricCard
               label="Impressões Totais"
               value={cur.total_impressions}
-              icon="👁"
+              icon={<IconEye size={16} />}
               previousValue={prev.total_impressions}
             />
           </>

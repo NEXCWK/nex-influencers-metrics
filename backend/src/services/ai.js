@@ -11,15 +11,22 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
 const EXTRACTION_PROMPT = `Você é um sistema de extração de métricas de redes sociais.
 
 As imagens fornecidas são DIVERSOS PRINTS DE UM ÚNICO POST. Cada print pode mostrar
-métricas diferentes do mesmo post (ex.: um print mostra alcance e impressões, outro
-mostra curtidas e comentários, outro mostra visitas ao perfil). Analise TODOS os prints
-em conjunto e CONSOLIDE os dados em um único conjunto de métricas para esse post.
+métricas diferentes do mesmo post. Analise TODOS os prints em conjunto e CONSOLIDE
+os dados em um único conjunto de métricas para esse post.
+
+Extraia TODAS as métricas que conseguir identificar visualmente nos prints — não se
+limite aos campos principais abaixo. Qualquer métrica visível (ex: "Não-seguidores
+alcançados", "Reproduções", "Tempo médio de visualização", "Seguidores conquistados",
+"Duração média assistida", "Cliques no perfil", etc.) deve ser incluída no objeto
+"extra" com nomes de chave em português usando snake_case.
 
 Regras de consolidação:
 - Para cada métrica, use o valor visível em qualquer um dos prints.
 - Se a mesma métrica aparecer em mais de um print com valores diferentes, use o valor
   mais claro/legível e registre a divergência em "notes".
 - Se uma métrica não estiver visível em nenhum print, retorne null para ela.
+- Converta métricas percentuais para número decimal (ex: 4,5% → 4.5).
+- Remova formatação de milhar e retorne sempre números puros.
 
 Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no seguinte formato:
 
@@ -34,10 +41,15 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no seguinte for
   "engagement_rate": null,
   "profile_visits": null,
   "link_clicks": null,
+  "extra": {},
   "platform_detected": null,
   "confidence": "high|medium|low",
   "notes": ""
 }
+
+O campo "extra" deve conter quaisquer outras métricas visíveis nos prints que não
+se encaixem nos campos principais acima, ex:
+{"nao_seguidores_alcancados": 850, "tempo_medio_video": "0:45", "seguidores_conquistados": 12}.
 
 Se detectar a plataforma pelo visual, informe em platform_detected.
 Se houver ambiguidade em algum valor, registre em notes.`;

@@ -152,4 +152,30 @@ async function deleteImage(path) {
   }
 }
 
-module.exports = { uploadImage, uploadAvatar, removeFile, getSignedUrl, deleteImage, ensureBucket };
+/**
+ * Lists all print images for a post and returns their signed URLs.
+ * Derives the post folder from any print path (e.g. image_url).
+ *
+ * @param {string} imagePath - Any file path in the post folder (e.g. image_url).
+ * @returns {Promise<string[]>} Array of signed URLs, sorted by filename.
+ */
+async function listImages(imagePath) {
+  if (!imagePath) return [];
+
+  const folder = imagePath.includes('/')
+    ? imagePath.substring(0, imagePath.lastIndexOf('/'))
+    : null;
+  if (!folder) return [];
+
+  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder);
+  if (error || !files || files.length === 0) return [];
+
+  const sorted = [...files].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true })
+  );
+
+  const urls = await Promise.all(sorted.map((f) => getSignedUrl(`${folder}/${f.name}`)));
+  return urls.filter(Boolean);
+}
+
+module.exports = { uploadImage, uploadAvatar, removeFile, getSignedUrl, deleteImage, ensureBucket, listImages };

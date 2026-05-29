@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import api from '../api.js';
 import MetricConfirmModal from '../components/MetricConfirmModal.jsx';
+import { IconUpload } from '../components/Icons.jsx';
 import styles from './Upload.module.css';
 
 const PLATFORMS = [
@@ -135,7 +136,7 @@ export default function Upload() {
 
       {successMsg && (
         <div className="alert alert-success" style={{ marginBottom: 24 }}>
-          ✓ {successMsg}
+          {successMsg}
         </div>
       )}
 
@@ -200,7 +201,7 @@ export default function Upload() {
                     Analisando {prints.length} print{prints.length !== 1 ? 's' : ''} com IA...
                   </>
                 ) : (
-                  `📤 Analisar e Salvar (${prints.length} print${prints.length !== 1 ? 's' : ''})`
+                  `Analisar e Salvar (${prints.length} print${prints.length !== 1 ? 's' : ''})`
                 )}
               </button>
 

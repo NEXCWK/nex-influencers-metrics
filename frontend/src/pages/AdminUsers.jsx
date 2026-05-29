@@ -156,7 +156,7 @@ export default function AdminUsers() {
                         onClick={() => handleResetPassword(user)}
                         disabled={!!actionLoading[user.id]}
                       >
-                        {actionLoading[user.id] === 'reset' ? '...' : '🔑 Resetar Senha'}
+                        {actionLoading[user.id] === 'reset' ? '...' : 'Resetar Senha'}
                       </button>
                       <button
                         className={`btn btn-sm ${user.is_active ? 'btn-danger' : 'btn-primary'}`}

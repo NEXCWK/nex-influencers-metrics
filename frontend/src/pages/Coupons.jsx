@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
+import { IconTicket, IconKey } from '../components/Icons.jsx';
 import styles from './Coupons.module.css';
 
 const MONTHS = [
@@ -56,7 +57,8 @@ function AdminCoupons() {
       await api.put(`/coupons/admin/${row.user_id}`, {
         year,
         month,
-        subscription_count: Number(row.subscription_count) || 0,
+        gallery_count: Number(row.gallery_count) || 0,
+        atrium_count: Number(row.atrium_count) || 0,
         access_count: Number(row.access_count) || 0,
       });
       setSavedId(row.user_id);
@@ -99,14 +101,15 @@ function AdminCoupons() {
             <thead>
               <tr>
                 <th>Influenciador</th>
-                <th style={{ width: 170 }}>Cupom Assinatura</th>
-                <th style={{ width: 170 }}>Cupom Access</th>
+                <th style={{ width: 160 }}>Assinatura Gallery</th>
+                <th style={{ width: 160 }}>Assinatura Atrium</th>
+                <th style={{ width: 140 }}>Cupom Access</th>
                 <th style={{ width: 120 }}>Ação</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={4} style={{ textAlign: 'center', color: '#888', padding: 32 }}>Nenhum influenciador ativo.</td></tr>
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#888', padding: 32 }}>Nenhum influenciador ativo.</td></tr>
               ) : rows.map((row) => (
                 <tr key={row.user_id}>
                   <td style={{ fontWeight: 600 }}>{row.display_name || row.username}</td>
@@ -114,15 +117,23 @@ function AdminCoupons() {
                     <input
                       type="number" min="0"
                       className="form-control"
-                      value={row.subscription_count}
-                      onChange={(e) => updateField(row.user_id, 'subscription_count', e.target.value)}
+                      value={row.gallery_count ?? 0}
+                      onChange={(e) => updateField(row.user_id, 'gallery_count', e.target.value)}
                     />
                   </td>
                   <td>
                     <input
                       type="number" min="0"
                       className="form-control"
-                      value={row.access_count}
+                      value={row.atrium_count ?? 0}
+                      onChange={(e) => updateField(row.user_id, 'atrium_count', e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number" min="0"
+                      className="form-control"
+                      value={row.access_count ?? 0}
                       onChange={(e) => updateField(row.user_id, 'access_count', e.target.value)}
                     />
                   </td>
@@ -132,7 +143,7 @@ function AdminCoupons() {
                       onClick={() => saveRow(row)}
                       disabled={savingId === row.user_id}
                     >
-                      {savingId === row.user_id ? 'Salvando...' : savedId === row.user_id ? '✓ Salvo' : 'Salvar'}
+                      {savingId === row.user_id ? 'Salvando...' : savedId === row.user_id ? 'Salvo' : 'Salvar'}
                     </button>
                   </td>
                 </tr>
@@ -187,11 +198,13 @@ function InfluencerCoupons() {
           <>
             <div className="skeleton" style={{ height: 110, borderRadius: 8 }} />
             <div className="skeleton" style={{ height: 110, borderRadius: 8 }} />
+            <div className="skeleton" style={{ height: 110, borderRadius: 8 }} />
           </>
         ) : (
           <>
-            <MetricCard label="Cupom Assinatura" value={current?.subscription_count ?? 0} icon="🎟️" />
-            <MetricCard label="Cupom Access" value={current?.access_count ?? 0} icon="🔑" />
+            <MetricCard label="Assinatura Gallery" value={current?.gallery_count ?? 0} icon={<IconTicket size={16} />} />
+            <MetricCard label="Assinatura Atrium" value={current?.atrium_count ?? 0} icon={<IconTicket size={16} />} />
+            <MetricCard label="Cupom Access" value={current?.access_count ?? 0} icon={<IconKey size={16} />} />
           </>
         )}
       </div>
@@ -208,7 +221,8 @@ function InfluencerCoupons() {
               <thead>
                 <tr>
                   <th>Mês</th>
-                  <th>Cupom Assinatura</th>
+                  <th>Assinatura Gallery</th>
+                  <th>Assinatura Atrium</th>
                   <th>Cupom Access</th>
                   <th>Total</th>
                 </tr>
@@ -217,9 +231,12 @@ function InfluencerCoupons() {
                 {history.map((h) => (
                   <tr key={`${h.year}-${h.month}`}>
                     <td style={{ fontWeight: 600 }}>{MONTHS[h.month - 1]}/{h.year}</td>
-                    <td>{h.subscription_count ?? 0}</td>
+                    <td>{h.gallery_count ?? 0}</td>
+                    <td>{h.atrium_count ?? 0}</td>
                     <td>{h.access_count ?? 0}</td>
-                    <td style={{ fontWeight: 700 }}>{(h.subscription_count ?? 0) + (h.access_count ?? 0)}</td>
+                    <td style={{ fontWeight: 700 }}>
+                      {(h.gallery_count ?? 0) + (h.atrium_count ?? 0) + (h.access_count ?? 0)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

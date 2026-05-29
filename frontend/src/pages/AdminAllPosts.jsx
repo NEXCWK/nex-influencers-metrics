@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
 import { flattenPosts, flattenRanking } from '../utils/normalize.js';
+import { IconDownload, IconCamera, IconChevronLeft, IconChevronRight } from '../components/Icons.jsx';
 import styles from './AdminAllPosts.module.css';
 
 const MONTHS = [
@@ -36,15 +37,48 @@ function formatDate(s) {
   return isNaN(d) ? s : d.toLocaleDateString('pt-BR');
 }
 
-function ImageModal({ src, onClose }) {
-  if (!src) return null;
+function PrintsModal({ postId, fallbackUrl, onClose }) {
+  const [prints, setPrints] = useState([]);
+  const [idx, setIdx] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setIdx(0);
+    api.get(`/admin/posts/${postId}/prints`)
+      .then((res) => setPrints(res.data?.prints || (fallbackUrl ? [fallbackUrl] : [])))
+      .catch(() => setPrints(fallbackUrl ? [fallbackUrl] : []))
+      .finally(() => setLoading(false));
+  }, [postId, fallbackUrl]);
+
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: 'white', borderRadius: 8, padding: 16, maxWidth: 700, width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+      <div style={{ background: 'white', borderRadius: 8, padding: 16, maxWidth: 720, width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+            {prints.length > 1 ? `Print ${idx + 1} de ${prints.length}` : 'Print'}
+          </span>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
-        <img src={src} alt="Post" style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 560 }} />
+        {loading ? (
+          <div className="skeleton" style={{ height: 400, borderRadius: 6 }} />
+        ) : prints.length > 0 ? (
+          <>
+            <img src={prints[idx]} alt={`Print ${idx + 1}`} style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 520, background: '#f5f5f5' }} />
+            {prints.length > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 12 }}>
+                <button className="btn btn-secondary btn-sm" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
+                  <IconChevronLeft size={14} /> Anterior
+                </button>
+                <span style={{ fontSize: 13 }}>{idx + 1}/{prints.length}</span>
+                <button className="btn btn-secondary btn-sm" disabled={idx === prints.length - 1} onClick={() => setIdx((i) => i + 1)}>
+                  Próximo <IconChevronRight size={14} />
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <p style={{ textAlign: 'center', color: '#888', padding: 40 }}>Nenhum print disponível.</p>
+        )}
       </div>
     </div>
   );
@@ -141,7 +175,7 @@ export default function AdminAllPosts() {
   const [influencers, setInfluencers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedImg, setExpandedImg] = useState(null);
+  const [expandedPost, setExpandedPost] = useState(null);
   const [editPost, setEditPost] = useState(null);
 
   // Load influencer list for filter dropdown
@@ -229,8 +263,8 @@ export default function AdminAllPosts() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Todos os Posts</h1>
-        <button className="btn btn-secondary" onClick={handleExportCSV}>
-          ⬇ Exportar CSV
+        <button className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <IconDownload size={14} /> Exportar CSV
         </button>
       </div>
 
@@ -298,10 +332,12 @@ export default function AdminAllPosts() {
                             src={post.image_url}
                             alt=""
                             style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, cursor: 'pointer', border: '1px solid var(--border)' }}
-                            onClick={() => setExpandedImg(post.image_url)}
+                            onClick={() => setExpandedPost(post)}
                           />
                         ) : (
-                          <div style={{ width: 48, height: 48, background: 'var(--surface)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📷</div>
+                          <div style={{ width: 48, height: 48, background: 'var(--surface)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                            <IconCamera size={18} />
+                          </div>
                         )}
                         <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem título'}</span>
                       </div>
@@ -314,6 +350,7 @@ export default function AdminAllPosts() {
                     <td>{post.engagement_rate != null ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setExpandedPost(post)}>Ver</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => setEditPost(post)}>Editar</button>
                         <button className="btn btn-danger btn-sm" onClick={() => handleDelete(post)}>Excluir</button>
                       </div>
@@ -345,7 +382,9 @@ export default function AdminAllPosts() {
       )}
 
       {/* Modals */}
-      <ImageModal src={expandedImg} onClose={() => setExpandedImg(null)} />
+      {expandedPost && (
+        <PrintsModal postId={expandedPost.id} fallbackUrl={expandedPost.image_url} onClose={() => setExpandedPost(null)} />
+      )}
       {editPost && (
         <EditMetricsModal post={editPost} onSave={handleEditSaved} onClose={() => setEditPost(null)} />
       )}

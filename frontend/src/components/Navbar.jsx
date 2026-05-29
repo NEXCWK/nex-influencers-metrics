@@ -1,21 +1,25 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import {
+  IconGrid, IconUpload, IconTicket, IconUser,
+  IconList, IconUsers,
+} from './Icons.jsx';
 import styles from './Navbar.module.css';
 
 const influencerLinks = [
-  { to: '/dashboard', label: 'Dashboard', icon: '◈' },
-  { to: '/upload', label: 'Novo Post', icon: '↑' },
-  { to: '/coupons', label: 'Cupons', icon: '🎟️' },
-  { to: '/profile', label: 'Atualizar Perfil', icon: '◐' },
+  { to: '/dashboard', label: 'Dashboard', icon: <IconGrid size={15} /> },
+  { to: '/upload', label: 'Novo Post', icon: <IconUpload size={15} /> },
+  { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
+  { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
 ];
 
 const adminLinks = [
-  { to: '/admin', label: 'Visão Geral', icon: '◈', end: true },
-  { to: '/admin/posts', label: 'Todos os Posts', icon: '▤' },
-  { to: '/admin/users', label: 'Usuários', icon: '◉' },
-  { to: '/coupons', label: 'Cupons', icon: '🎟️' },
-  { to: '/profile', label: 'Atualizar Perfil', icon: '◐' },
+  { to: '/admin', label: 'Visão Geral', icon: <IconGrid size={15} />, end: true },
+  { to: '/admin/posts', label: 'Todos os Posts', icon: <IconList size={15} /> },
+  { to: '/admin/users', label: 'Usuários', icon: <IconUsers size={15} /> },
+  { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
+  { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
 ];
 
 export default function Navbar() {
@@ -75,7 +79,12 @@ export default function Navbar() {
           </div>
         </div>
         <button className={styles.logoutBtn} onClick={handleLogout}>
-          <span>⏻</span> Sair
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Sair
         </button>
       </div>
     </nav>

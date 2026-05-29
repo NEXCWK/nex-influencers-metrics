@@ -133,7 +133,7 @@ export default function Profile() {
                 onClick={handleAvatarPick}
                 disabled={uploadingAvatar}
               >
-                {uploadingAvatar ? 'Enviando...' : '📷 Trocar foto'}
+                {uploadingAvatar ? 'Enviando...' : 'Trocar foto'}
               </button>
               <input
                 ref={fileRef}

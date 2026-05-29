@@ -296,6 +296,7 @@ router.post('/:id/confirm', async (req, res, next) => {
       profile_visits,
       link_clicks,
       manually_edited,
+      extra_metrics,
     } = req.body;
 
     // Upsert metrics (insert or update if already exists for this post)
@@ -313,6 +314,7 @@ router.post('/:id/confirm', async (req, res, next) => {
         profile_visits: profile_visits ?? null,
         link_clicks: link_clicks ?? null,
         manually_edited: manually_edited === true,
+        extra_metrics: extra_metrics || null,
       },
       { onConflict: 'post_id' }
     );
