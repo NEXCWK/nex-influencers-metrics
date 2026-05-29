@@ -10,6 +10,7 @@ const DEFAULT_PASSWORD = 'nex2026';
 const users = [
   { username: 'felipemoreira', role: 'admin',       display_name: 'Felipe Moreira' },
   { username: 'luizamarques',  role: 'admin',       display_name: 'Luiza Marques'  },
+  { username: 'andrepegorer',  role: 'admin',       display_name: 'Andre Pegorer'  },
   { username: 'paulapicat',    role: 'influencer',  display_name: 'Paula Picat'    },
   { username: 'gabs',          role: 'influencer',  display_name: 'Gabs'           },
   { username: 'ari',           role: 'influencer',  display_name: 'Ari'            },
