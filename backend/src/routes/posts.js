@@ -118,12 +118,16 @@ const ALLOWED_PLATFORMS = ['instagram', 'tiktok', 'youtube', 'linkedin'];
 router.post(
   '/upload',
   uploadLimiter,
-  upload.single('image'),
+  upload.array('images', 10),
   async (req, res, next) => {
     try {
-      // Validate file presence
-      if (!req.file) {
-        return res.status(400).json({ error: 'Image file is required (field name: image)' });
+      // Validate file presence — one post may include up to 10 prints
+      const files = req.files || [];
+      if (files.length === 0) {
+        return res.status(400).json({ error: 'At least one image is required (field name: images)' });
+      }
+      if (files.length > 10) {
+        return res.status(400).json({ error: 'A post can have at most 10 prints' });
       }
 
       const { title, published_at, platform } = req.body;
@@ -155,7 +159,6 @@ router.post(
       const publishedDate = new Date(published_at);
       const year = publishedDate.getUTCFullYear();
       const month = publishedDate.getUTCMonth() + 1;
-      const ext = extFromMime(req.file.mimetype);
 
       // 1. Create post record (without image_url yet)
       const { error: insertError } = await supabase.from('posts').insert({
@@ -172,37 +175,47 @@ router.post(
         return res.status(500).json({ error: 'Failed to create post record' });
       }
 
-      // 2. Upload image to Supabase Storage
-      let storagePath;
+      // 2. Upload every print to Supabase Storage (grouped under the post folder)
+      const imagePaths = [];
       try {
-        storagePath = await storage.uploadImage(
-          req.file.buffer,
-          req.file.mimetype,
-          userId,
-          postId,
-          year,
-          month,
-          ext
-        );
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const path = await storage.uploadImage(
+            f.buffer,
+            f.mimetype,
+            userId,
+            postId,
+            year,
+            month,
+            extFromMime(f.mimetype),
+            i
+          );
+          imagePaths.push(path);
+        }
       } catch (uploadErr) {
-        // Clean up orphaned post on upload failure
+        // Clean up orphaned post + any uploaded prints on failure
         await supabase.from('posts').delete().eq('id', postId);
+        if (imagePaths[0]) {
+          try { await storage.deleteImage(imagePaths[0]); } catch { /* best effort */ }
+        }
         console.error('Storage upload error:', uploadErr.message);
-        return res.status(500).json({ error: 'Failed to upload image' });
+        return res.status(500).json({ error: 'Failed to upload images' });
       }
 
-      // 3. Update post with storage path
+      // 3. Update post with the primary print path (first print = thumbnail)
       await supabase
         .from('posts')
-        .update({ image_url: storagePath })
+        .update({ image_url: imagePaths[0] })
         .eq('id', postId);
 
-      // 4. Extract metrics with Claude AI
+      // 4. Extract & consolidate metrics from ALL prints with Claude AI
       let aiResult = null;
       let extractionFailed = false;
 
       try {
-        aiResult = await ai.extractMetrics(req.file.buffer, req.file.mimetype);
+        aiResult = await ai.extractMetricsFromImages(
+          files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }))
+        );
 
         // Store raw AI response on the post
         await supabase

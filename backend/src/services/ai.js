@@ -9,7 +9,18 @@ const client = new Anthropic.default({
 const MODEL = 'claude-sonnet-4-20250514';
 
 const EXTRACTION_PROMPT = `Você é um sistema de extração de métricas de redes sociais.
-Analise o print de métricas fornecido e extraia APENAS os dados numéricos visíveis.
+
+As imagens fornecidas são DIVERSOS PRINTS DE UM ÚNICO POST. Cada print pode mostrar
+métricas diferentes do mesmo post (ex.: um print mostra alcance e impressões, outro
+mostra curtidas e comentários, outro mostra visitas ao perfil). Analise TODOS os prints
+em conjunto e CONSOLIDE os dados em um único conjunto de métricas para esse post.
+
+Regras de consolidação:
+- Para cada métrica, use o valor visível em qualquer um dos prints.
+- Se a mesma métrica aparecer em mais de um print com valores diferentes, use o valor
+  mais claro/legível e registre a divergência em "notes".
+- Se uma métrica não estiver visível em nenhum print, retorne null para ela.
+
 Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no seguinte formato:
 
 {
@@ -28,23 +39,46 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no seguinte for
   "notes": ""
 }
 
-Se um campo não estiver visível no print, retorne null para esse campo.
 Se detectar a plataforma pelo visual, informe em platform_detected.
 Se houver ambiguidade em algum valor, registre em notes.`;
 
-/**
- * Extracts social media metrics from an image using Claude.
- *
- * @param {Buffer} imageBuffer - Raw image bytes.
- * @param {string} mimeType - e.g. 'image/jpeg', 'image/png', 'image/webp'
- * @returns {Promise<Object>} Parsed metrics object.
- */
-async function extractMetrics(imageBuffer, mimeType) {
-  const base64Image = imageBuffer.toString('base64');
+const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-  // Ensure mimeType is one Claude supports for vision
-  const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  const effectiveMimeType = supportedMimeTypes.includes(mimeType) ? mimeType : 'image/jpeg';
+function parseAiJson(rawText) {
+  const jsonText = rawText
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim();
+
+  try {
+    return JSON.parse(jsonText);
+  } catch (parseErr) {
+    console.error('Failed to parse Claude JSON response:', rawText);
+    throw new Error(`AI response was not valid JSON: ${parseErr.message}`);
+  }
+}
+
+/**
+ * Extracts and consolidates social media metrics from one or more screenshots
+ * that all belong to the SAME post.
+ *
+ * @param {Array<{buffer: Buffer, mimeType: string}>} images
+ * @returns {Promise<Object>} Parsed (consolidated) metrics object.
+ */
+async function extractMetricsFromImages(images) {
+  if (!Array.isArray(images) || images.length === 0) {
+    throw new Error('extractMetricsFromImages requires at least one image');
+  }
+
+  const imageBlocks = images.map(({ buffer, mimeType }) => ({
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: SUPPORTED_MIME_TYPES.includes(mimeType) ? mimeType : 'image/jpeg',
+      data: buffer.toString('base64'),
+    },
+  }));
 
   const message = await client.messages.create({
     model: MODEL,
@@ -52,41 +86,19 @@ async function extractMetrics(imageBuffer, mimeType) {
     messages: [
       {
         role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: effectiveMimeType,
-              data: base64Image,
-            },
-          },
-          {
-            type: 'text',
-            text: EXTRACTION_PROMPT,
-          },
-        ],
+        content: [...imageBlocks, { type: 'text', text: EXTRACTION_PROMPT }],
       },
     ],
   });
 
-  const rawText = message.content[0].text.trim();
-
-  // Strip any accidental markdown code fences Claude might add
-  const jsonText = rawText
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/\s*```$/, '')
-    .trim();
-
-  let parsed;
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch (parseErr) {
-    console.error('Failed to parse Claude JSON response:', rawText);
-    throw new Error(`AI response was not valid JSON: ${parseErr.message}`);
-  }
-
-  return parsed;
+  return parseAiJson(message.content[0].text);
 }
 
-module.exports = { extractMetrics };
+/**
+ * Backwards-compatible single-image extraction.
+ */
+async function extractMetrics(imageBuffer, mimeType) {
+  return extractMetricsFromImages([{ buffer: imageBuffer, mimeType }]);
+}
+
+module.exports = { extractMetrics, extractMetricsFromImages };

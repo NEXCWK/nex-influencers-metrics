@@ -13,51 +13,47 @@ const PLATFORMS = [
 ];
 
 const TODAY = new Date().toISOString().split('T')[0];
-const MAX_FILES = 10;
+const MAX_PRINTS = 10;
 
 let _nextId = 0;
-function makeItem(file) {
-  _nextId++;
-  const raw = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim();
-  return {
-    localId: _nextId,
-    file,
-    preview: URL.createObjectURL(file),
-    title: raw || 'Post sem título',
-    platform: 'instagram',
-    date: TODAY,
-  };
-}
 
 export default function Upload() {
   const navigate = useNavigate();
 
-  const [fileItems, setFileItems] = useState([]);
-  const [formError, setFormError] = useState('');
+  // Post-level fields (one post)
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState(TODAY);
+  const [platform, setPlatform] = useState('instagram');
 
-  // Processing
-  const [processing, setProcessing] = useState(false);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [currentLabel, setCurrentLabel] = useState('');
-  const [isConfirming, setIsConfirming] = useState(false);
+  // Prints for this single post
+  const [prints, setPrints] = useState([]); // [{ localId, file, preview }]
 
-  // Confirmation modal (one at a time, driven by a Promise)
-  const [pendingConfirm, setPendingConfirm] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const [doneAll, setDoneAll] = useState(false);
+  // Confirmation modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [extractedMetrics, setExtractedMetrics] = useState(null);
+  const [postId, setPostId] = useState(null);
+  const [confidence, setConfidence] = useState('medium');
+  const [aiNotes, setAiNotes] = useState('');
 
-  // ── Dropzone ────────────────────────────────────────────────────────────────
+  // ── Dropzone ─────────────────────────────────────────────────────────────
 
   const onDrop = useCallback((accepted) => {
-    setFormError('');
-    setFileItems((prev) => {
-      const remaining = MAX_FILES - prev.length;
+    setUploadError('');
+    setPrints((prev) => {
+      const remaining = MAX_PRINTS - prev.length;
       if (remaining <= 0) {
-        setFormError(`Máximo de ${MAX_FILES} imagens atingido.`);
+        setUploadError(`Máximo de ${MAX_PRINTS} prints por post.`);
         return prev;
       }
-      return [...prev, ...accepted.slice(0, remaining).map(makeItem)];
+      const added = accepted.slice(0, remaining).map((file) => {
+        _nextId++;
+        return { localId: _nextId, file, preview: URL.createObjectURL(file) };
+      });
+      return [...prev, ...added];
     });
   }, []);
 
@@ -66,260 +62,210 @@ export default function Upload() {
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] },
     maxSize: 10 * 1024 * 1024,
     multiple: true,
-    onDropRejected: () => setFormError('Arquivo inválido. Use JPG, PNG ou WEBP com até 10MB.'),
+    onDropRejected: () => setUploadError('Arquivo inválido. Use JPG, PNG ou WEBP com até 10MB.'),
   });
 
-  // ── Item helpers ─────────────────────────────────────────────────────────────
-
-  const removeItem = (localId) => {
-    setFileItems((prev) => {
-      const item = prev.find((i) => i.localId === localId);
+  const removePrint = (localId) => {
+    setPrints((prev) => {
+      const item = prev.find((p) => p.localId === localId);
       if (item) URL.revokeObjectURL(item.preview);
-      return prev.filter((i) => i.localId !== localId);
+      return prev.filter((p) => p.localId !== localId);
     });
   };
 
-  const updateItem = (localId, field, value) => {
-    setFileItems((prev) => prev.map((i) => (i.localId === localId ? { ...i, [field]: value } : i)));
-  };
-
-  const clearAll = () => {
-    fileItems.forEach((i) => URL.revokeObjectURL(i.preview));
-    setFileItems([]);
-    setFormError('');
-  };
-
-  // ── Confirmation gate (blocks the upload loop until user confirms) ───────────
-
-  const waitForConfirmation = (data) =>
-    new Promise((resolve) => {
-      setIsConfirming(true);
-      setPendingConfirm({ ...data, resolve });
-    });
-
-  const handleModalConfirm = () => {
-    if (pendingConfirm) {
-      pendingConfirm.resolve();
-      setPendingConfirm(null);
-      setIsConfirming(false);
-    }
-  };
-
-  const handleModalClose = () => {
-    // Dismiss without saving metrics — post stays in DB, user can confirm later
-    if (pendingConfirm) {
-      pendingConfirm.resolve();
-      setPendingConfirm(null);
-      setIsConfirming(false);
-    }
-  };
-
-  // ── Submit ───────────────────────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (fileItems.length === 0) {
-      setFormError('Adicione pelo menos uma imagem.');
+    setUploadError('');
+
+    if (prints.length === 0) {
+      setUploadError('Adicione pelo menos um print do post.');
       return;
     }
-    const missing = fileItems.find((i) => !i.title.trim());
-    if (missing) {
-      setFormError('Todos os posts precisam de um título.');
+    if (!title.trim()) {
+      setUploadError('Informe um título para o post.');
       return;
     }
 
-    setFormError('');
-    setProcessing(true);
-    setTotalCount(fileItems.length);
-    setProcessedCount(0);
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      prints.forEach((p) => formData.append('images', p.file));
+      formData.append('title', title.trim());
+      formData.append('published_at', date);
+      formData.append('platform', platform);
 
-    for (let i = 0; i < fileItems.length; i++) {
-      const item = fileItems[i];
-      setCurrentLabel(item.title || item.file.name);
-      setIsConfirming(false);
+      const res = await api.post('/posts/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 90000, // up to 90s for analyzing several prints
+      });
 
-      try {
-        const formData = new FormData();
-        formData.append('image', item.file);
-        formData.append('title', item.title.trim());
-        formData.append('published_at', item.date);
-        formData.append('platform', item.platform);
-
-        const res = await api.post('/posts/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 60000,
-        });
-
-        const { post_id, metrics_extracted, confidence, notes } = res.data;
-
-        await waitForConfirmation({
-          postId: post_id,
-          metrics: metrics_extracted || {},
-          confidence: confidence || 'medium',
-          notes: notes || '',
-        });
-      } catch (err) {
-        const msg = err.response?.data?.error || err.message;
-        console.error(`Erro ao enviar "${item.title}":`, msg);
-        // Non-fatal: skip this file but continue with others
-      }
-
-      setProcessedCount(i + 1);
+      const { post_id, metrics_extracted, confidence: conf, notes } = res.data;
+      setPostId(post_id);
+      setExtractedMetrics(metrics_extracted || {});
+      setConfidence(conf || 'medium');
+      setAiNotes(notes || '');
+      setModalOpen(true);
+    } catch (err) {
+      setUploadError(
+        err.response?.data?.error || 'Erro ao enviar o post. Tente novamente.'
+      );
+    } finally {
+      setUploading(false);
     }
+  };
 
-    setProcessing(false);
-    setDoneAll(true);
+  const handleConfirm = () => {
+    setModalOpen(false);
+    setSuccessMsg('Post enviado e métricas confirmadas com sucesso!');
+    prints.forEach((p) => URL.revokeObjectURL(p.preview));
     setTimeout(() => navigate('/dashboard'), 2000);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
-
-  if (doneAll) {
-    return (
-      <div>
-        <div className="page-header">
-          <h1 className="page-title">Novo Upload</h1>
-        </div>
-        <div className="alert alert-success">
-          ✓ {processedCount} post{processedCount !== 1 ? 's' : ''} enviado{processedCount !== 1 ? 's' : ''} com sucesso! Redirecionando...
-        </div>
-      </div>
-    );
-  }
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Novo Upload</h1>
-        {fileItems.length > 0 && !processing && (
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font)' }}>
-            {fileItems.length}/{MAX_FILES} imagens selecionadas
-          </span>
-        )}
+        <h1 className="page-title">Novo Post</h1>
       </div>
 
-      {formError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{formError}</div>}
-
-      {/* Progress indicator */}
-      {processing && (
-        <div className="card" style={{ marginBottom: 24, textAlign: 'center', padding: '28px 24px' }}>
-          <span className="spinner" style={{ width: 28, height: 28, borderWidth: 3, margin: '0 auto 14px', display: 'block' }} />
-          <p style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-            {isConfirming
-              ? `Confirme as métricas (${processedCount + 1} de ${totalCount})`
-              : `Analisando com IA (${processedCount + 1} de ${totalCount})`}
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font)', marginBottom: 16 }}>
-            {currentLabel}
-          </p>
-          <div className={styles.progressBar}>
-            <div
-              className={styles.progressFill}
-              style={{ width: `${(processedCount / totalCount) * 100}%` }}
-            />
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font)', marginTop: 8 }}>
-            {processedCount} de {totalCount} concluídos
-          </p>
+      {successMsg && (
+        <div className="alert alert-success" style={{ marginBottom: 24 }}>
+          ✓ {successMsg}
         </div>
       )}
 
-      {!processing && (
-        <form onSubmit={handleSubmit} noValidate>
-          {/* Dropzone — only visible if below limit */}
-          {fileItems.length < MAX_FILES && (
+      <div className={styles.uploadLayout}>
+        {/* Left: post info form */}
+        <div className={styles.formSection}>
+          <div className="card">
+            <h2 className="section-title" style={{ marginBottom: 20 }}>Informações do Post</h2>
+
+            <form onSubmit={handleSubmit} noValidate>
+              {uploadError && <div className="alert alert-error">{uploadError}</div>}
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="title">Título do post</label>
+                <input
+                  id="title"
+                  type="text"
+                  className="form-control"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Ex: Post sobre coworking em SP"
+                  disabled={uploading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="platform">Plataforma</label>
+                <select
+                  id="platform"
+                  className="form-control"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                  disabled={uploading}
+                >
+                  {PLATFORMS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="date">Data de publicação</label>
+                <input
+                  id="date"
+                  type="date"
+                  className="form-control"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  disabled={uploading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
+                disabled={uploading || prints.length === 0}
+              >
+                {uploading ? (
+                  <>
+                    <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    Analisando {prints.length} print{prints.length !== 1 ? 's' : ''} com IA...
+                  </>
+                ) : (
+                  `📤 Analisar e Salvar (${prints.length} print${prints.length !== 1 ? 's' : ''})`
+                )}
+              </button>
+
+              {uploading && (
+                <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', marginTop: 10, fontFamily: 'var(--font)' }}>
+                  A IA está lendo todos os prints e consolidando as métricas. Aguarde.
+                </p>
+              )}
+            </form>
+          </div>
+        </div>
+
+        {/* Right: multi-print dropzone + thumbnails */}
+        <div className={styles.dropSection}>
+          {prints.length < MAX_PRINTS && (
             <div
               {...getRootProps()}
               className={`${styles.dropzone} ${isDragActive ? styles.dragActive : ''}`}
-              style={{ marginBottom: fileItems.length > 0 ? 20 : 0 }}
             >
               <input {...getInputProps()} />
               <span className={styles.uploadIcon}>☁</span>
               <p className={styles.dropText}>
-                {isDragActive ? 'Solte as imagens aqui' : 'Arraste imagens ou clique para selecionar'}
+                {isDragActive ? 'Solte os prints aqui' : 'Arraste os prints ou clique para selecionar'}
               </p>
               <p className={styles.dropHint}>
-                Até {MAX_FILES} imagens — JPG, PNG, WEBP — 10MB cada
+                Vários prints do mesmo post — até {MAX_PRINTS} — JPG, PNG, WEBP — 10MB cada
               </p>
-              {fileItems.length > 0 && (
-                <p className={styles.dropHint} style={{ marginTop: 4 }}>
-                  Você pode adicionar mais {MAX_FILES - fileItems.length} imagem{MAX_FILES - fileItems.length !== 1 ? 's' : ''}
-                </p>
-              )}
             </div>
           )}
 
-          {/* File queue */}
-          {fileItems.length > 0 && (
-            <div className={styles.fileList}>
-              {fileItems.map((item, idx) => (
-                <div key={item.localId} className={styles.fileCard}>
-                  <div className={styles.fileThumb}>
-                    <img src={item.preview} alt="" />
-                    <span className={styles.fileIdx}>{idx + 1}</span>
-                  </div>
-                  <div className={styles.fileFields}>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Título do post"
-                      value={item.title}
-                      onChange={(e) => updateItem(item.localId, 'title', e.target.value)}
-                    />
-                    <div className={styles.fileFieldsRow}>
-                      <select
-                        className="form-control"
-                        value={item.platform}
-                        onChange={(e) => updateItem(item.localId, 'platform', e.target.value)}
+          {prints.length > 0 && (
+            <>
+              <div className={styles.printCount}>
+                {prints.length}/{MAX_PRINTS} prints adicionados
+              </div>
+              <div className={styles.thumbGrid}>
+                {prints.map((p, idx) => (
+                  <div key={p.localId} className={styles.thumb}>
+                    <img src={p.preview} alt={`Print ${idx + 1}`} />
+                    <span className={styles.thumbIdx}>{idx + 1}</span>
+                    {!uploading && (
+                      <button
+                        type="button"
+                        className={styles.thumbRemove}
+                        onClick={() => removePrint(p.localId)}
+                        aria-label="Remover print"
                       >
-                        {PLATFORMS.map((p) => (
-                          <option key={p.value} value={p.value}>{p.label}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="date"
-                        className="form-control"
-                        value={item.date}
-                        onChange={(e) => updateItem(item.localId, 'date', e.target.value)}
-                      />
-                    </div>
+                        ×
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    className={styles.removeBtn}
-                    onClick={() => removeItem(item.localId)}
-                    title="Remover"
-                    aria-label="Remover imagem"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           )}
+        </div>
+      </div>
 
-          {fileItems.length > 0 && (
-            <div className={styles.actions}>
-              <button type="button" className="btn btn-secondary" onClick={clearAll}>
-                Limpar tudo
-              </button>
-              <button type="submit" className="btn btn-primary">
-                📤 Enviar {fileItems.length} post{fileItems.length !== 1 ? 's' : ''}
-              </button>
-            </div>
-          )}
-        </form>
-      )}
-
-      {/* Confirmation modal — opens once per file */}
+      {/* Metric confirmation modal (consolidated metrics for the post) */}
       <MetricConfirmModal
-        isOpen={!!pendingConfirm}
-        metrics={pendingConfirm?.metrics || {}}
-        postId={pendingConfirm?.postId}
-        confidence={pendingConfirm?.confidence}
-        notes={pendingConfirm?.notes}
-        onConfirm={handleModalConfirm}
-        onClose={handleModalClose}
+        isOpen={modalOpen}
+        metrics={extractedMetrics}
+        postId={postId}
+        confidence={confidence}
+        notes={aiNotes}
+        onConfirm={handleConfirm}
+        onClose={() => setModalOpen(false)}
       />
     </div>
   );

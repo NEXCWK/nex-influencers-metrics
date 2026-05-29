@@ -17,9 +17,10 @@ const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
  * @param {string} ext - file extension without the dot (e.g. 'jpg')
  * @returns {Promise<string>} The storage path of the uploaded file.
  */
-async function uploadImage(buffer, mimeType, userId, postId, year, month, ext) {
+async function uploadImage(buffer, mimeType, userId, postId, year, month, ext, index = 0) {
   const paddedMonth = String(month).padStart(2, '0');
-  const path = `${userId}/${year}/${paddedMonth}/${postId}.${ext}`;
+  // Prints are grouped in a per-post folder so a single post can hold many.
+  const path = `${userId}/${year}/${paddedMonth}/${postId}/${index}.${ext}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -57,15 +58,32 @@ async function getSignedUrl(path) {
 }
 
 /**
- * Deletes a file from Supabase Storage.
+ * Deletes a post's prints from Supabase Storage. Because every print of a post
+ * lives in the same `.../{postId}/` folder, this removes the whole folder so
+ * no orphan prints are left behind.
  *
- * @param {string} path - The storage path to delete.
+ * @param {string} path - Any print path belonging to the post (e.g. image_url).
  * @returns {Promise<void>}
  */
 async function deleteImage(path) {
   if (!path) return;
 
-  const { error } = await supabase.storage.from(BUCKET).remove([path]);
+  // Derive the post folder from the file path (strip the file name).
+  const folder = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : path;
+
+  const { data: files, error: listError } = await supabase.storage
+    .from(BUCKET)
+    .list(folder);
+
+  if (listError) {
+    throw new Error(`Storage list failed: ${listError.message}`);
+  }
+
+  const paths = (files || []).map((f) => `${folder}/${f.name}`);
+  // Fall back to the single path if the folder listing came back empty.
+  const toRemove = paths.length > 0 ? paths : [path];
+
+  const { error } = await supabase.storage.from(BUCKET).remove(toRemove);
 
   if (error) {
     throw new Error(`Storage delete failed: ${error.message}`);
