@@ -12,27 +12,27 @@
 }
 
 .logo {
-  padding: 24px 20px 20px;
+  padding: 20px 20px 18px;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
-.logoNex {
-  font-size: 22px;
-  font-weight: 900;
-  font-family: system-ui, Arial, sans-serif;
-  letter-spacing: 0.08em;
-  color: var(--text-primary);
-  line-height: 1;
+.logoImg {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
+  object-position: left;
 }
 
 .logoSub {
-  font-size: 11px;
+  font-size: 10px;
+  font-family: var(--font);
+  font-weight: 600;
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .navList {
@@ -47,12 +47,12 @@
   gap: 10px;
   padding: 10px 20px;
   font-size: 14px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font);
+  font-weight: 400;
   color: var(--text-secondary);
   text-decoration: none;
   transition: background 0.1s, color 0.1s;
   border-left: 3px solid transparent;
-  font-weight: 500;
 }
 
 .navLink:hover {
@@ -68,7 +68,7 @@
 }
 
 .navIcon {
-  font-size: 16px;
+  font-size: 15px;
   width: 20px;
   text-align: center;
   flex-shrink: 0;
@@ -94,13 +94,13 @@
   border-radius: 50%;
   background: var(--accent);
   color: var(--text-primary);
-  font-weight: 700;
-  font-size: 14px;
+  font-weight: 800;
+  font-size: 13px;
+  font-family: var(--font);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-family: Arial, sans-serif;
 }
 
 .userDetails {
@@ -113,8 +113,8 @@
 .userName {
   font-size: 13px;
   font-weight: 700;
+  font-family: var(--font);
   color: var(--text-primary);
-  font-family: Arial, sans-serif;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -122,8 +122,9 @@
 
 .userRole {
   font-size: 11px;
+  font-family: var(--font);
+  font-weight: 400;
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
 }
 
 .logoutBtn {
@@ -135,7 +136,8 @@
   border-radius: var(--radius);
   padding: 7px 12px;
   font-size: 13px;
-  font-family: Arial, sans-serif;
+  font-family: var(--font);
+  font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;

@@ -11,57 +11,59 @@
   background: white;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 40px 36px;
+  padding: 48px 40px 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
 }
 
 .logoArea {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 28px;
+  gap: 8px;
+  margin-bottom: 32px;
 }
 
-.logoNex {
-  font-size: 36px;
-  font-weight: 900;
-  font-family: system-ui, Arial, sans-serif;
-  letter-spacing: 0.12em;
-  color: var(--text-primary);
-  line-height: 1;
+.logoImg {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
 }
 
 .logoSub {
-  font-size: 12px;
+  font-size: 11px;
+  font-family: var(--font);
+  font-weight: 600;
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-  font-family: system-ui, Arial, sans-serif;
+  font-family: var(--font);
   color: var(--text-primary);
   margin-bottom: 6px;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: var(--font);
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .footer {
   text-align: center;
   font-size: 12px;
+  font-family: var(--font);
+  font-weight: 400;
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
-  margin-top: 24px;
+  margin-top: 28px;
 }

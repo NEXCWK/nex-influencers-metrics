@@ -45,7 +45,7 @@ export default function Login() {
       <div className={styles.card}>
         {/* Logo */}
         <div className={styles.logoArea}>
-          <span className={styles.logoNex}>NEX</span>
+          <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
           <span className={styles.logoSub}>Influencer Metrics</span>
         </div>
 

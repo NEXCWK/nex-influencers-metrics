@@ -29,7 +29,7 @@ export default function Navbar() {
     <nav className={styles.sidebar}>
       {/* Logo */}
       <div className={styles.logo}>
-        <span className={styles.logoNex}>NEX</span>
+        <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
         <span className={styles.logoSub}>Influencer Metrics</span>
       </div>
 
