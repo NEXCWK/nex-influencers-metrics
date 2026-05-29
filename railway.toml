@@ -1,21 +1,6 @@
-[build]
-builder = "NIXPACKS"
-
-[[services]]
-name = "backend"
-source = "backend"
-
-[services.build]
-buildCommand = "npm install"
-startCommand = "npm start"
-
-[services.variables]
-PORT = "3001"
-
-[[services]]
-name = "frontend"
-source = "frontend"
-
-[services.build]
-buildCommand = "npm install && npm run build"
-startCommand = "npx serve dist -p $PORT"
+# Monorepo — configure dois serviços separados no Railway:
+#
+#   Serviço "backend"  → Root Directory: /backend
+#   Serviço "frontend" → Root Directory: /frontend
+#
+# Cada pasta tem seu próprio railway.toml com as instruções de build/deploy.
