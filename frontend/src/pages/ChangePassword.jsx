@@ -38,7 +38,7 @@ export default function ChangePassword() {
       }
     } catch (err) {
       setError(
-        err.response?.data?.detail ||
+        err.response?.data?.error ||
         err.response?.data?.message ||
         'Erro ao alterar a senha. Tente novamente.'
       );
@@ -51,7 +51,7 @@ export default function ChangePassword() {
     <div className={styles.page}>
       <div className={styles.card}>
         <div className={styles.logoArea}>
-          <span className={styles.logoNex}>NEX</span>
+          <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
           <span className={styles.logoSub}>Influencer Metrics</span>
         </div>
 

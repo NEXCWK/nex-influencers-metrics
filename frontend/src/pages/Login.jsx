@@ -31,7 +31,7 @@ export default function Login() {
       }
     } catch (err) {
       const msg =
-        err.response?.data?.detail ||
+        err.response?.data?.error ||
         err.response?.data?.message ||
         'Usuário ou senha incorretos.';
       setError(msg);

@@ -20,10 +20,12 @@ api.interceptors.request.use(
 );
 
 // Response interceptor: on 401, clear token and redirect to /login
+// Skip redirect for auth endpoints (login/change-password handle their own errors)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    const isAuthRoute = error.config?.url?.startsWith('/auth/');
+    if (error.response?.status === 401 && !isAuthRoute) {
       localStorage.removeItem('nex_token');
       localStorage.removeItem('nex_user');
       window.location.href = '/login';
