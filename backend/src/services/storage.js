@@ -4,6 +4,36 @@ const supabase = require('../db/supabase');
 
 const BUCKET = 'post-prints';
 const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+let bucketReady = false;
+
+/**
+ * Ensures the private `post-prints` bucket exists. Idempotent and cached after
+ * the first successful check so it only hits the API once per process.
+ */
+async function ensureBucket() {
+  if (bucketReady) return;
+
+  const { data: existing } = await supabase.storage.getBucket(BUCKET);
+  if (existing) {
+    bucketReady = true;
+    return;
+  }
+
+  const { error: createError } = await supabase.storage.createBucket(BUCKET, {
+    public: false,
+    allowedMimeTypes: ALLOWED_MIME,
+    fileSizeLimit: 10 * 1024 * 1024, // 10 MB
+  });
+
+  // Tolerate the race where another request created it first.
+  if (createError && !/already exists/i.test(createError.message)) {
+    throw new Error(`Failed to create storage bucket: ${createError.message}`);
+  }
+
+  bucketReady = true;
+}
 
 /**
  * Uploads an image buffer to Supabase Storage.
@@ -18,6 +48,8 @@ const SIGNED_URL_EXPIRY = 3600; // 1 hour in seconds
  * @returns {Promise<string>} The storage path of the uploaded file.
  */
 async function uploadImage(buffer, mimeType, userId, postId, year, month, ext, index = 0) {
+  await ensureBucket();
+
   const paddedMonth = String(month).padStart(2, '0');
   // Prints are grouped in a per-post folder so a single post can hold many.
   const path = `${userId}/${year}/${paddedMonth}/${postId}/${index}.${ext}`;
@@ -90,4 +122,4 @@ async function deleteImage(path) {
   }
 }
 
-module.exports = { uploadImage, getSignedUrl, deleteImage };
+module.exports = { uploadImage, getSignedUrl, deleteImage, ensureBucket };
