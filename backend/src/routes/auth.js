@@ -22,29 +22,38 @@ router.post('/login', async (req, res, next) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    const normalizedUsername = username.trim().toLowerCase();
+    console.log('[LOGIN] attempt for username:', normalizedUsername);
+
     // Fetch user by username
     const { data: user, error: fetchError } = await supabase
       .from('users')
       .select('id, username, display_name, role, password_hash, must_change_password, is_active')
-      .eq('username', username.trim().toLowerCase())
+      .eq('username', normalizedUsername)
       .maybeSingle();
 
     if (fetchError) {
-      console.error('Login DB error:', fetchError.message);
+      console.error('[LOGIN] DB error:', fetchError.message);
       return res.status(500).json({ error: 'Internal server error' });
     }
 
+    console.log('[LOGIN] user found:', !!user, '| is_active:', user?.is_active);
+
     if (!user) {
+      console.log('[LOGIN] rejected: user not found');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     if (!user.is_active) {
+      console.log('[LOGIN] rejected: account deactivated');
       return res.status(403).json({ error: 'Account is deactivated' });
     }
 
     // Verify password
     const passwordValid = await bcrypt.compare(password, user.password_hash);
+    console.log('[LOGIN] password valid:', passwordValid, '| hash prefix:', user.password_hash?.slice(0, 10));
     if (!passwordValid) {
+      console.log('[LOGIN] rejected: wrong password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
