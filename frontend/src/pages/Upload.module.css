@@ -1,29 +1,8 @@
-.uploadLayout {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-@media (max-width: 768px) {
-  .uploadLayout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.formSection {
-  /* inherits card styles from .card class */
-}
-
-.dropSection {
-  /* Holds dropzone or preview */
-}
-
 .dropzone {
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   background: var(--surface);
-  padding: 48px 24px;
+  padding: 40px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -31,7 +10,7 @@
   text-align: center;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
-  min-height: 280px;
+  min-height: 200px;
 }
 
 .dropzone:hover {
@@ -46,9 +25,9 @@
 }
 
 .uploadIcon {
-  font-size: 48px;
+  font-size: 40px;
   color: var(--accent);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   display: block;
   line-height: 1;
 }
@@ -56,35 +35,151 @@
 .dropText {
   font-size: 15px;
   font-weight: 600;
-  font-family: Arial, sans-serif;
+  font-family: var(--font);
   color: var(--text-primary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .dropHint {
   font-size: 12px;
   color: var(--text-secondary);
-  font-family: Arial, sans-serif;
+  font-family: var(--font);
+  margin: 0;
 }
 
-.previewWrapper {
+/* ── File queue ──────────────────────────────────────────────── */
+
+.fileList {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.fileCard {
+  display: flex;
   align-items: center;
-  gap: 0;
+  gap: 14px;
+  background: white;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
-  background: var(--surface);
-  min-height: 280px;
+  padding: 12px 14px;
+  transition: box-shadow 0.15s;
+}
+
+.fileCard:hover {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+}
+
+.fileThumb {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.fileThumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.fileIdx {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  background: var(--text-primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-.previewImg {
-  width: 100%;
-  max-width: 420px;
-  max-height: 420px;
-  object-fit: contain;
-  border-radius: 6px;
+.fileFields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fileFieldsRow {
+  display: flex;
+  gap: 8px;
+}
+
+.fileFieldsRow .form-control {
+  flex: 1;
+  min-width: 0;
+}
+
+.removeBtn {
+  flex-shrink: 0;
+  background: none;
   border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+
+.removeBtn:hover {
+  background: #fef2f2;
+  color: #e53e3e;
+  border-color: #fca5a5;
+}
+
+/* ── Bottom actions ─────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Progress bar ───────────────────────────────────────────── */
+
+.progressBar {
+  width: 100%;
+  max-width: 320px;
+  height: 6px;
+  background: var(--surface);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--text-primary);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .fileCard {
+    flex-wrap: wrap;
+  }
+
+  .fileFieldsRow {
+    flex-direction: column;
+  }
 }

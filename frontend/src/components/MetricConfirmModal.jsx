@@ -83,8 +83,7 @@ export default function MetricConfirmModal({
       onConfirm(payload);
     } catch (err) {
       setError(
-        err.response?.data?.detail ||
-        err.response?.data?.message ||
+        err.response?.data?.error ||
         'Erro ao confirmar métricas. Tente novamente.'
       );
     } finally {
