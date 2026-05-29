@@ -6,6 +6,7 @@ import PostList from '../components/PostList.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
+import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
 import styles from './AdminInfluencer.module.css';
 
 const MONTHS = [
@@ -93,10 +94,11 @@ export default function AdminInfluencer() {
       const data = res.data;
       setInfluencer(data.influencer || null);
       setSummary(data.summary || null);
-      setHistory(data.history || []);
-      setCompare(data.compare || null);
-      setYearData(data.year_data || []);
-      setPosts(data.posts || []);
+      setHistory(toChartSeries(data.history));
+      // The dashboard endpoint returns { current, previous } under `summary`.
+      setCompare(data.summary || null);
+      setYearData(toChartSeries(data.year_data));
+      setPosts(flattenPosts(data.posts));
     } catch (err) {
       setError('Erro ao carregar dados do influenciador.');
     } finally {
@@ -111,7 +113,7 @@ export default function AdminInfluencer() {
   const handleDeletePost = async (post) => {
     if (!window.confirm(`Confirmar exclusão do post "${post.title || 'post'}"?`)) return;
     try {
-      await api.delete(`/posts/${post.id}`);
+      await api.delete(`/admin/posts/${post.id}`);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
     } catch {
       alert('Erro ao excluir post.');
@@ -120,6 +122,9 @@ export default function AdminInfluencer() {
 
   const yearOptions = [];
   for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) yearOptions.push(y);
+
+  const cur = summaryFromAgg(summary?.current);
+  const prev = summaryFromAgg(summary?.previous);
 
   return (
     <div>
@@ -154,10 +159,10 @@ export default function AdminInfluencer() {
           <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
         ) : (
           <>
-            <MetricCard label="Total de Posts" value={summary?.total_posts ?? 0} icon="📄" previousValue={compare?.previous?.total_posts} />
-            <MetricCard label="Alcance Total" value={summary?.total_reach ?? 0} icon="📡" previousValue={compare?.previous?.total_reach} />
-            <MetricCard label="Engajamento Médio" value={summary?.avg_engagement_rate ?? 0} unit="%" icon="💬" previousValue={compare?.previous?.avg_engagement_rate} />
-            <MetricCard label="Impressões Totais" value={summary?.total_impressions ?? 0} icon="👁" previousValue={compare?.previous?.total_impressions} />
+            <MetricCard label="Total de Posts" value={cur.total_posts} icon="📄" previousValue={prev.total_posts} />
+            <MetricCard label="Alcance Total" value={cur.total_reach} icon="📡" previousValue={prev.total_reach} />
+            <MetricCard label="Engajamento Médio" value={cur.avg_engagement_rate} unit="%" icon="💬" previousValue={prev.avg_engagement_rate} />
+            <MetricCard label="Impressões Totais" value={cur.total_impressions} icon="👁" previousValue={prev.total_impressions} />
           </>
         )}
       </div>

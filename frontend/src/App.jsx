@@ -14,6 +14,7 @@ import AdminUsers from './pages/AdminUsers.jsx';
 
 // Layout wrapper with Navbar
 import Navbar from './components/Navbar.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Protected route: requires auth; redirects to /change-password if must_change_password
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -43,7 +44,9 @@ function ProtectedRoute({ children, adminOnly = false }) {
     <div className="layout">
       <Navbar />
       <main className="main-content">
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
     </div>
   );

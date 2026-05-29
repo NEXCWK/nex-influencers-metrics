@@ -5,6 +5,7 @@ import PostList from '../components/PostList.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
+import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
 import styles from './Dashboard.module.css';
 
 const MONTHS = [
@@ -52,10 +53,10 @@ export default function Dashboard() {
         api.get('/posts', { params: { month, year } }),
       ]);
       setSummary(summaryRes.data);
-      setHistory(historyRes.data || []);
+      setHistory(toChartSeries(historyRes.data?.history));
       setCompare(compareRes.data);
-      setYearData(yearRes.data || []);
-      setPosts(postsRes.data?.posts || postsRes.data || []);
+      setYearData(toChartSeries(yearRes.data?.months));
+      setPosts(flattenPosts(postsRes.data?.posts));
     } catch (err) {
       setError('Erro ao carregar os dados. Verifique sua conexão e tente novamente.');
     } finally {
@@ -71,6 +72,10 @@ export default function Dashboard() {
   for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) {
     yearOptions.push(y);
   }
+
+  // Backend returns { current, previous, variation } with aggregated metric keys.
+  const cur = summaryFromAgg(summary?.current);
+  const prev = summaryFromAgg(summary?.previous);
 
   return (
     <div>
@@ -113,28 +118,28 @@ export default function Dashboard() {
           <>
             <MetricCard
               label="Total de Posts"
-              value={summary?.total_posts ?? 0}
+              value={cur.total_posts}
               icon="📄"
-              previousValue={compare?.previous?.total_posts}
+              previousValue={prev.total_posts}
             />
             <MetricCard
               label="Alcance Total"
-              value={summary?.total_reach ?? 0}
+              value={cur.total_reach}
               icon="📡"
-              previousValue={compare?.previous?.total_reach}
+              previousValue={prev.total_reach}
             />
             <MetricCard
               label="Engajamento Médio"
-              value={summary?.avg_engagement_rate ?? 0}
+              value={cur.avg_engagement_rate}
               unit="%"
               icon="💬"
-              previousValue={compare?.previous?.avg_engagement_rate}
+              previousValue={prev.avg_engagement_rate}
             />
             <MetricCard
               label="Impressões Totais"
-              value={summary?.total_impressions ?? 0}
+              value={cur.total_impressions}
               icon="👁"
-              previousValue={compare?.previous?.total_impressions}
+              previousValue={prev.total_impressions}
             />
           </>
         )}

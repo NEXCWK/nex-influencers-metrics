@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
+import { flattenRanking } from '../utils/normalize.js';
 import styles from './AdminHome.module.css';
 
 const MONTHS = [
@@ -55,7 +56,7 @@ export default function AdminHome() {
         api.get('/admin/influencers', { params }),
       ]);
       setOverview(overviewRes.data);
-      setInfluencers(influencersRes.data?.influencers || influencersRes.data || []);
+      setInfluencers(flattenRanking(influencersRes.data?.ranking));
     } catch (err) {
       setError('Erro ao carregar dados. Tente novamente.');
     } finally {
@@ -79,7 +80,7 @@ export default function AdminHome() {
     }
   };
 
-  const sorted = [...influencers].sort((a, b) => {
+  const sorted = (Array.isArray(influencers) ? [...influencers] : []).sort((a, b) => {
     const valA = parseFloat(a[sortBy]) || 0;
     const valB = parseFloat(b[sortBy]) || 0;
     return sortDir === 'asc' ? valA - valB : valB - valA;
@@ -117,8 +118,8 @@ export default function AdminHome() {
           <>
             <MetricCard label="Influenciadores Ativos" value={overview?.active_influencers ?? 0} icon="👥" />
             <MetricCard label="Total de Posts" value={overview?.total_posts ?? 0} icon="📄" />
-            <MetricCard label="Alcance Total" value={overview?.total_reach ?? 0} icon="📡" />
-            <MetricCard label="Engajamento Médio" value={overview?.avg_engagement ?? 0} unit="%" icon="💬" />
+            <MetricCard label="Alcance Total" value={overview?.aggregate?.reach ?? 0} icon="📡" />
+            <MetricCard label="Engajamento Médio" value={overview?.aggregate?.engagement_rate ?? 0} unit="%" icon="💬" />
           </>
         )}
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
+import { flattenPosts, flattenRanking } from '../utils/normalize.js';
 import styles from './AdminAllPosts.module.css';
 
 const MONTHS = [
@@ -79,10 +80,10 @@ function EditMetricsModal({ post, onSave, onClose }) {
       FIELDS.forEach(({ key }) => {
         if (values[key] !== '') payload[key] = parseFloat(values[key]);
       });
-      await api.patch(`/posts/${post.id}/metrics`, payload);
+      await api.patch(`/admin/posts/${post.id}`, payload);
       onSave({ ...post, ...payload });
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar métricas.');
+      setError(err.response?.data?.error || 'Erro ao salvar métricas.');
     } finally {
       setSaving(false);
     }
@@ -146,18 +147,19 @@ export default function AdminAllPosts() {
   // Load influencer list for filter dropdown
   useEffect(() => {
     api.get('/admin/influencers').then((res) => {
-      setInfluencers(res.data?.influencers || res.data || []);
+      setInfluencers(flattenRanking(res.data?.ranking));
     }).catch(() => {});
   }, []);
 
   const buildParams = useCallback(() => {
-    const p = { page, page_size: PAGE_SIZE };
-    if (influencerFilter) p.influencer_id = influencerFilter;
+    // Param names match the backend query contract (admin.js).
+    const p = { page, pageSize: PAGE_SIZE };
+    if (influencerFilter) p.influencerId = influencerFilter;
     if (monthFilter) p.month = monthFilter;
     if (yearFilter) p.year = yearFilter;
     if (platformFilter) p.platform = platformFilter;
-    if (dateFrom) p.date_from = dateFrom;
-    if (dateTo) p.date_to = dateTo;
+    if (dateFrom) p.startDate = dateFrom;
+    if (dateTo) p.endDate = dateTo;
     return p;
   }, [influencerFilter, monthFilter, yearFilter, platformFilter, dateFrom, dateTo, page]);
 
@@ -167,7 +169,7 @@ export default function AdminAllPosts() {
     try {
       const res = await api.get('/admin/posts', { params: buildParams() });
       const data = res.data;
-      setPosts(data.posts || data.items || data || []);
+      setPosts(flattenPosts(data.posts));
       setTotal(data.total || (data.posts?.length) || 0);
     } catch {
       setError('Erro ao carregar posts.');
@@ -189,7 +191,7 @@ export default function AdminAllPosts() {
   const handleDelete = async (post) => {
     if (!window.confirm(`Excluir o post "${post.title || 'post'}"?`)) return;
     try {
-      await api.delete(`/posts/${post.id}`);
+      await api.delete(`/admin/posts/${post.id}`);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
       setTotal((t) => t - 1);
     } catch {
