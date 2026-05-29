@@ -17,6 +17,8 @@ const users = [
   { username: 'anabia',        role: 'influencer',  display_name: 'Ana Bia'        },
   { username: 'anarusick',     role: 'influencer',  display_name: 'Ana Rusick'     },
   { username: 'gabi',          role: 'influencer',  display_name: 'Gabi'           },
+  { username: 'ronaldo',       role: 'influencer',  display_name: 'Ronaldo'        },
+  { username: 'vanessa',       role: 'influencer',  display_name: 'Vanessa'        },
 ];
 
 async function seed() {
