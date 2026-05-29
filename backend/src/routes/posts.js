@@ -193,13 +193,10 @@ router.post(
           imagePaths.push(path);
         }
       } catch (uploadErr) {
-        // Clean up orphaned post + any uploaded prints on failure
+        // Clean up orphaned post on upload failure
         await supabase.from('posts').delete().eq('id', postId);
-        if (imagePaths[0]) {
-          try { await storage.deleteImage(imagePaths[0]); } catch { /* best effort */ }
-        }
         console.error('Storage upload error:', uploadErr.message);
-        return res.status(500).json({ error: 'Failed to upload images' });
+        return res.status(500).json({ error: `Failed to upload images: ${uploadErr.message}` });
       }
 
       // 3. Update post with the primary print path (first print = thumbnail)

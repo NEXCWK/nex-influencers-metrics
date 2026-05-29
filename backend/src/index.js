@@ -57,6 +57,24 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// Diagnostic: test Supabase Storage bucket access (no auth required — internal use)
+app.get('/health/storage', async (_req, res) => {
+  try {
+    const supabase = require('./db/supabase');
+    const BUCKET = 'post-prints';
+
+    // Try to list the root of the bucket — fails if bucket doesn't exist or is inaccessible
+    const { data, error } = await supabase.storage.from(BUCKET).list('', { limit: 1 });
+
+    if (error) {
+      return res.status(500).json({ ok: false, bucket: BUCKET, error: error.message });
+    }
+    return res.json({ ok: true, bucket: BUCKET, listed: data?.length ?? 0 });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
