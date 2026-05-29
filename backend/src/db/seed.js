@@ -67,7 +67,12 @@ async function seed() {
   process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error('Unexpected seed error:', err);
-  process.exit(1);
-});
+// Allow running directly (node src/db/seed.js) or imported as a function
+if (require.main === module) {
+  seed().catch((err) => {
+    console.error('Unexpected seed error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = seed;

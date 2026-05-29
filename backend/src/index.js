@@ -96,12 +96,26 @@ app.use((err, _req, res, _next) => {
 // Start server
 // ---------------------------------------------------------------------------
 const PORT = parseInt(process.env.PORT || '3001', 10);
-app.listen(PORT, () => {
-  console.log(`Nex Influencer Metrics API running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  if (corsOrigin !== '*') {
-    console.log(`CORS origin: ${corsOrigin}`);
+
+async function start() {
+  if (process.env.RUN_SEED === 'true') {
+    console.log('RUN_SEED=true detected — running seed before starting server...');
+    const seed = require('./db/seed');
+    await seed();
   }
+
+  app.listen(PORT, () => {
+    console.log(`Nex Influencer Metrics API running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    if (corsOrigin !== '*') {
+      console.log(`CORS origin: ${corsOrigin}`);
+    }
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
 
 module.exports = app;
