@@ -64,7 +64,6 @@ async function seed() {
   }
 
   console.log('Seed complete.');
-  process.exit(0);
 }
 
 // Allow running directly (node src/db/seed.js) or imported as a function
