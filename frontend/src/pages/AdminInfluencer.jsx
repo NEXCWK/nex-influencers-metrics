@@ -14,7 +14,7 @@ import {
 import styles from './AdminInfluencer.module.css';
 
 const MONTHS = [
-  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
 ];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -23,11 +23,18 @@ const CURRENT_MONTH = new Date().getMonth() + 1;
 const COMPARE_METRICS = [
   { key: 'reach', label: 'Alcance' },
   { key: 'likes', label: 'Curtidas' },
-  { key: 'impressions', label: 'Impressões' },
+  { key: 'impressions', label: 'Impressoes' },
 ];
 
+const PLATFORM_CHIP_CLASS = {
+  instagram: styles.chipInstagram,
+  tiktok: styles.chipTiktok,
+  youtube: styles.chipYoutube,
+  linkedin: styles.chipLinkedin,
+};
+
 function SkeletonCard() {
-  return <div className="skeleton" style={{ height: 110, borderRadius: 8 }} />;
+  return <div className="skeleton" style={{ height: 110, borderRadius: 16 }} />;
 }
 
 function PostImageModal({ post, onClose }) {
@@ -56,10 +63,9 @@ function PostImageModal({ post, onClose }) {
       <div className="modal-card" style={{ maxWidth: 760 }}>
         <div className="modal-header">
           <h2 className="modal-title">{post.title || 'Post'}</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose}>x</button>
         </div>
 
-        {/* Prints carousel */}
         {loadingPrints ? (
           <div className="skeleton" style={{ height: 300, borderRadius: 8, marginBottom: 20 }} />
         ) : prints.length > 0 ? (
@@ -67,42 +73,31 @@ function PostImageModal({ post, onClose }) {
             <img
               src={prints[printIdx]}
               alt={`Print ${printIdx + 1}`}
-              style={{ width: '100%', borderRadius: 8, objectFit: 'contain', maxHeight: 460, background: '#f5f5f5' }}
+              style={{ width: '100%', borderRadius: 8, objectFit: 'contain', maxHeight: 460, background: 'var(--surface-muted)' }}
             />
             {prints.length > 1 && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 10 }}>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  disabled={printIdx === 0}
-                  onClick={() => setPrintIdx((i) => i - 1)}
-                >
+                <button className="btn btn-secondary btn-sm" disabled={printIdx === 0} onClick={() => setPrintIdx((i) => i - 1)}>
                   <IconChevronLeft size={14} /> Anterior
                 </button>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                  {printIdx + 1} / {prints.length}
-                </span>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  disabled={printIdx === prints.length - 1}
-                  onClick={() => setPrintIdx((i) => i + 1)}
-                >
-                  Próximo <IconChevronRight size={14} />
+                <span style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{printIdx + 1} / {prints.length}</span>
+                <button className="btn btn-secondary btn-sm" disabled={printIdx === prints.length - 1} onClick={() => setPrintIdx((i) => i + 1)}>
+                  Proximo <IconChevronRight size={14} />
                 </button>
               </div>
             )}
           </div>
         ) : null}
 
-        {/* Standard metrics */}
         <div className={styles.postDetailGrid}>
           {[
             ['Plataforma', post.platform],
             ['Data', post.published_date || post.created_at],
             ['Alcance', post.reach],
             ['Curtidas', post.likes],
-            ['Comentários', post.comments],
+            ['Comentarios', post.comments],
             ['Compartilhamentos', post.shares],
-            ['Impressões', post.impressions],
+            ['Impressoes', post.impressions],
             ['Engajamento', post.engagement_rate ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'],
             ['Plays', post.plays],
             ['Salvamentos', post.saves],
@@ -116,12 +111,9 @@ function PostImageModal({ post, onClose }) {
           ))}
         </div>
 
-        {/* Extra AI metrics */}
         {extraMetrics.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-              Métricas adicionais (IA)
-            </p>
+            <p className="section-title" style={{ marginBottom: 10 }}>Metricas adicionais (IA)</p>
             <div className={styles.postDetailGrid}>
               {extraMetrics.map(([key, val]) => (
                 <div key={key} className={styles.detailItem}>
@@ -169,23 +161,20 @@ export default function AdminInfluencer() {
       setInfluencer(data.influencer || null);
       setSummary(data.summary || null);
       setHistory(toChartSeries(data.history));
-      // The dashboard endpoint returns { current, previous } under `summary`.
       setCompare(data.summary || null);
       setYearData(toChartSeries(data.year_data));
       setPosts(flattenPosts(data.posts));
-    } catch (err) {
+    } catch {
       setError('Erro ao carregar dados do influenciador.');
     } finally {
       setLoading(false);
     }
   }, [id, month, year]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleDeletePost = async (post) => {
-    if (!window.confirm(`Confirmar exclusão do post "${post.title || 'post'}"?`)) return;
+    if (!window.confirm(`Confirmar exclusao do post "${post.title || 'post'}"?`)) return;
     try {
       await api.delete(`/admin/posts/${post.id}`);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
@@ -200,22 +189,55 @@ export default function AdminInfluencer() {
   const cur = summaryFromAgg(summary?.current);
   const prev = summaryFromAgg(summary?.previous);
 
+  const platforms = [...new Set(posts.map((p) => p.platform).filter(Boolean))];
+  const initial = loading
+    ? '?'
+    : ((influencer?.display_name || influencer?.username || '?')[0] || '?').toUpperCase();
+
   return (
     <div>
-      {/* Header */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={() => navigate('/admin')}
-          >
-            ← Voltar
-          </button>
-          <h1 className="page-title">
-            {loading ? 'Carregando...' : (influencer?.display_name || influencer?.username || 'Influenciador')}
-          </h1>
+      {loading ? (
+        <div className="skeleton" style={{ height: 90, borderRadius: 16, marginBottom: 28 }} />
+      ) : (
+        <div className={styles.influencerHeader}>
+          <div className={styles.headerAvatarWrap}>
+            {influencer?.avatar_url ? (
+              <img src={influencer.avatar_url} alt="" className={styles.headerAvatarImg} />
+            ) : (
+              <div className={styles.headerAvatar}>{initial}</div>
+            )}
+          </div>
+          <div className={styles.headerInfo}>
+            <h1 className={styles.headerName}>
+              {influencer?.display_name || influencer?.username || 'Influenciador'}
+            </h1>
+            {influencer?.username && (
+              <p className={styles.headerHandle}>@{influencer.username}</p>
+            )}
+            {platforms.length > 0 && (
+              <div className={styles.platformChips}>
+                {platforms.map((p) => (
+                  <span key={p} className={`${styles.platformChip} ${PLATFORM_CHIP_CLASS[p] || styles.chipDefault}`}>
+                    {p}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className={styles.headerActions}>
+            <button className={styles.backLink} onClick={() => navigate('/admin')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+              </svg>
+              Voltar
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+      )}
+
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <div />
+        <div className={styles.filters}>
           <select className="form-control" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
             {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
           </select>
@@ -227,7 +249,6 @@ export default function AdminInfluencer() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {/* Metric cards */}
       <div className="metrics-grid">
         {loading ? (
           <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
@@ -235,27 +256,26 @@ export default function AdminInfluencer() {
           <>
             <MetricCard label="Total de Posts" value={cur.total_posts} icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
             <MetricCard label="Alcance Total" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
-            <MetricCard label="Engajamento Médio" value={cur.avg_engagement_rate} unit="%" icon={<IconMessageCircle size={16} />} previousValue={prev.avg_engagement_rate} />
-            <MetricCard label="Impressões Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
+            <MetricCard label="Engajamento Medio" value={cur.avg_engagement_rate} unit="%" icon={<IconMessageCircle size={16} />} previousValue={prev.avg_engagement_rate} />
+            <MetricCard label="Impressoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
           </>
         )}
       </div>
 
-      {/* Chart tabs */}
       <div className="tab-bar">
-        <button className={`tab-btn ${tab === 'month' ? 'active' : ''}`} onClick={() => setTab('month')}>Mês Atual</button>
-        <button className={`tab-btn ${tab === 'year' ? 'active' : ''}`} onClick={() => setTab('year')}>Visão Anual</button>
+        <button className={`tab-btn ${tab === 'month' ? 'active' : ''}`} onClick={() => setTab('month')}>Mes Atual</button>
+        <button className={`tab-btn ${tab === 'year' ? 'active' : ''}`} onClick={() => setTab('year')}>Visao Anual</button>
       </div>
 
       {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 8, marginBottom: 24 }} />
+        <div className="skeleton" style={{ height: 300, borderRadius: 16, marginBottom: 24 }} />
       ) : tab === 'month' ? (
         <div className={styles.chartsRow}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <NexLineChart
               data={history}
               xKey="month"
-              title="Evolução — Alcance e Engajamento"
+              title="Evolucao — Alcance e Engajamento"
               lines={[
                 { key: 'reach', name: 'Alcance', color: '#000000' },
                 { key: 'engagement_rate', name: 'Engajamento (%)', color: '#FFD400' },
@@ -274,17 +294,23 @@ export default function AdminInfluencer() {
         <YearView data={yearData} />
       )}
 
-      {/* Posts with admin actions */}
       <div style={{ marginTop: 32 }}>
-        <h2 className="section-title">Posts do Período</h2>
+        <h2 className="section-title">Posts do Periodo</h2>
         {loading ? (
-          <div className="skeleton" style={{ height: 200, borderRadius: 8 }} />
+          <div className="skeleton" style={{ height: 200, borderRadius: 16 }} />
+        ) : posts.length === 0 ? (
+          <div style={{
+            textAlign: 'center', padding: '48px 24px',
+            border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+            color: 'var(--ink-muted)', fontSize: 14,
+          }}>
+            Nenhum post encontrado para o periodo selecionado.
+          </div>
         ) : (
           <AdminPostList posts={posts} onView={setSelectedPost} onDelete={handleDeletePost} />
         )}
       </div>
 
-      {/* Post detail modal */}
       {selectedPost && (
         <PostImageModal post={selectedPost} onClose={() => setSelectedPost(null)} />
       )}
@@ -292,20 +318,7 @@ export default function AdminInfluencer() {
   );
 }
 
-// Extended post list with admin actions
 function AdminPostList({ posts, onView, onDelete }) {
-  if (!posts.length) {
-    return (
-      <div style={{
-        textAlign: 'center', padding: '40px 16px', color: '#888',
-        fontSize: 14, fontFamily: 'Arial, sans-serif',
-        border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-      }}>
-        Nenhum post encontrado para o período selecionado.
-      </div>
-    );
-  }
-
   const formatNum = (v) => {
     if (v === null || v === undefined) return '—';
     const n = parseFloat(v);
@@ -332,7 +345,7 @@ function AdminPostList({ posts, onView, onDelete }) {
             <th>Alcance</th>
             <th>Curtidas</th>
             <th>Engajamento</th>
-            <th>Ações</th>
+            <th>Acoes</th>
           </tr>
         </thead>
         <tbody>
@@ -341,22 +354,26 @@ function AdminPostList({ posts, onView, onDelete }) {
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {post.image_url ? (
-                    <img src={post.image_url} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onView(post)} />
+                    <img src={post.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', flexShrink: 0 }} onClick={() => onView(post)} />
                   ) : (
-                    <div style={{ width: 56, height: 56, background: 'var(--surface)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}><IconCamera size={20} /></div>
+                    <div style={{ width: 40, height: 40, background: 'var(--surface-muted)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-muted)', flexShrink: 0 }}>
+                      <IconCamera size={16} />
+                    </div>
                   )}
-                  <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'Arial' }}>{post.title || 'Sem título'}</span>
+                  <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)' }}>{post.title || 'Sem titulo'}</span>
                 </div>
               </td>
               <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
-              <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{formatDate(post.published_date || post.created_at)}</td>
-              <td>{formatNum(post.reach)}</td>
-              <td>{formatNum(post.likes)}</td>
-              <td>{post.engagement_rate !== null && post.engagement_rate !== undefined ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'}</td>
+              <td style={{ color: 'var(--ink-muted)', fontSize: 13 }}>{formatDate(post.published_date || post.created_at)}</td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.reach)}</td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.likes)}</td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {post.engagement_rate !== null && post.engagement_rate !== undefined ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'}
+              </td>
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => onView(post)}>Ver</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => onDelete(post)}>Excluir</button>
+                  <button className="btn btn-danger-outline btn-sm" onClick={() => onDelete(post)}>Excluir</button>
                 </div>
               </td>
             </tr>

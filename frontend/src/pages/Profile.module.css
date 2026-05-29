@@ -11,6 +11,7 @@
   }
 }
 
+/* ── Avatar ──────────────────────────────────────── */
 .avatarRow {
   display: flex;
   align-items: center;
@@ -21,12 +22,17 @@
 }
 
 .avatarWrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
   flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 50%;
 }
 
 .avatar {
-  width: 84px;
-  height: 84px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--border);
@@ -34,38 +40,139 @@
 }
 
 .avatarFallback {
-  width: 84px;
-  height: 84px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  background: var(--text-primary);
+  background: var(--ink);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
   font-family: var(--font);
 }
 
+.avatarOverlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.avatarWrap:hover .avatarOverlay {
+  background: rgba(0, 0, 0, 0.42);
+  color: white;
+}
+
 .hint {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--ink-muted);
   font-family: var(--font);
-  margin: 8px 0 0;
+  margin: 6px 0 0;
 }
 
 .fieldErr {
   font-size: 12px;
-  color: #e53e3e;
+  color: var(--danger);
   font-family: var(--font);
-  margin: 6px 0 0;
+  margin: 4px 0 0;
 }
 
 .counter {
   display: block;
   text-align: right;
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--ink-muted);
   font-family: var(--font);
   margin-top: 4px;
+}
+
+/* ── Password field with eye toggle ─────────────── */
+.pwdWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pwdInput {
+  padding-right: 42px !important;
+}
+
+.pwdEye {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.12s;
+}
+
+.pwdEye:hover {
+  color: var(--ink);
+}
+
+/* ── Password strength ───────────────────────────── */
+.strengthWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.strengthBar {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+}
+
+.strengthSegment {
+  flex: 1;
+  height: 4px;
+  border-radius: 99px;
+  transition: background 0.2s;
+}
+
+.strengthLabel {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font);
+  min-width: 48px;
+  text-align: right;
+}
+
+/* ── Toast ───────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--ink);
+  color: white;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font);
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  animation: slideUpToast 200ms ease-out both;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+}
+
+@keyframes slideUpToast {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

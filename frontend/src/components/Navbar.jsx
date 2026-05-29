@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
@@ -15,18 +15,40 @@ const influencerLinks = [
 ];
 
 const adminLinks = [
-  { to: '/admin', label: 'Visão Geral', icon: <IconGrid size={15} />, end: true },
+  { to: '/admin', label: 'Visao Geral', icon: <IconGrid size={15} />, end: true },
   { to: '/admin/posts', label: 'Todos os Posts', icon: <IconList size={15} /> },
-  { to: '/admin/users', label: 'Usuários', icon: <IconUsers size={15} /> },
+  { to: '/admin/users', label: 'Usuarios', icon: <IconUsers size={15} /> },
   { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
   { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
 ];
 
+function IconChevronUp({ size = 12 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   const handleLogout = () => {
+    setMenuOpen(false);
     logout();
     navigate('/login');
   };
@@ -35,13 +57,11 @@ export default function Navbar() {
 
   return (
     <nav className={styles.sidebar}>
-      {/* Logo */}
       <div className={styles.logo}>
         <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
         <span className={styles.logoSub}>Influencer Metrics</span>
       </div>
 
-      {/* Navigation Links */}
       <ul className={styles.navList}>
         {links.map((link) => (
           <li key={link.to}>
@@ -59,9 +79,34 @@ export default function Navbar() {
         ))}
       </ul>
 
-      {/* Bottom: user info + logout */}
-      <div className={styles.bottomSection}>
-        <div className={styles.userInfo}>
+      <div className={styles.bottomSection} ref={menuRef}>
+        {menuOpen && (
+          <div className={styles.avatarMenu}>
+            <NavLink
+              to="/profile"
+              className={styles.avatarMenuItem}
+              onClick={() => setMenuOpen(false)}
+            >
+              <IconUser size={14} />
+              Perfil
+            </NavLink>
+            <hr className={styles.avatarMenuDivider} />
+            <button className={`${styles.avatarMenuItem} ${styles.avatarMenuLogout}`} onClick={handleLogout}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Sair
+            </button>
+          </div>
+        )}
+
+        <button
+          className={styles.userTrigger}
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-expanded={menuOpen}
+        >
           {user?.avatar_url ? (
             <img src={user.avatar_url} alt="" className={styles.userAvatarImg} />
           ) : (
@@ -77,14 +122,9 @@ export default function Navbar() {
               {user?.role === 'admin' ? 'Administrador' : 'Influenciador'}
             </span>
           </div>
-        </div>
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          Sair
+          <span className={`${styles.chevron} ${menuOpen ? styles.chevronOpen : ''}`}>
+            <IconChevronUp />
+          </span>
         </button>
       </div>
     </nav>

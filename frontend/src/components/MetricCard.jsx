@@ -31,7 +31,7 @@ export default function MetricCard({ label, value, unit, previousValue, icon }) 
   return (
     <div className={styles.card}>
       <div className={styles.header}>
-        {icon && <span className={styles.icon}>{icon}</span>}
+        {icon && <span className={styles.iconBadge}>{icon}</span>}
         <span className={styles.label}>{label}</span>
       </div>
       <div className={styles.value}>
@@ -39,7 +39,7 @@ export default function MetricCard({ label, value, unit, previousValue, icon }) 
       </div>
       {change !== null && (
         <div className={`${styles.change} ${change >= 0 ? styles.positive : styles.negative}`}>
-          {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(1)}% vs mês anterior
+          {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(1)}% vs mes anterior
         </div>
       )}
     </div>

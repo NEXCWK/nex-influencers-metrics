@@ -6,13 +6,13 @@ import styles from './AdminAllPosts.module.css';
 
 const MONTHS = [
   { value: '', label: 'Todos os meses' },
-  ...['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  ...['Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
     'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
     .map((m, i) => ({ value: String(i + 1), label: m })),
 ];
 
 const PLATFORMS = [
-  { value: '', label: 'Todas as plataformas' },
+  { value: '', label: 'Plataforma' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'tiktok', label: 'TikTok' },
   { value: 'youtube', label: 'YouTube' },
@@ -52,18 +52,18 @@ function PrintsModal({ postId, fallbackUrl, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: 'white', borderRadius: 8, padding: 16, maxWidth: 720, width: '100%' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, maxWidth: 720, width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: 13, color: 'var(--ink-muted)' }}>
             {prints.length > 1 ? `Print ${idx + 1} de ${prints.length}` : 'Print'}
           </span>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={onClose}>x</button>
         </div>
         {loading ? (
           <div className="skeleton" style={{ height: 400, borderRadius: 6 }} />
         ) : prints.length > 0 ? (
           <>
-            <img src={prints[idx]} alt={`Print ${idx + 1}`} style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 520, background: '#f5f5f5' }} />
+            <img src={prints[idx]} alt={`Print ${idx + 1}`} style={{ width: '100%', borderRadius: 6, objectFit: 'contain', maxHeight: 520, background: 'var(--surface-muted)' }} />
             {prints.length > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 12 }}>
                 <button className="btn btn-secondary btn-sm" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
@@ -71,13 +71,13 @@ function PrintsModal({ postId, fallbackUrl, onClose }) {
                 </button>
                 <span style={{ fontSize: 13 }}>{idx + 1}/{prints.length}</span>
                 <button className="btn btn-secondary btn-sm" disabled={idx === prints.length - 1} onClick={() => setIdx((i) => i + 1)}>
-                  Próximo <IconChevronRight size={14} />
+                  Proximo <IconChevronRight size={14} />
                 </button>
               </div>
             )}
           </>
         ) : (
-          <p style={{ textAlign: 'center', color: '#888', padding: 40 }}>Nenhum print disponível.</p>
+          <p style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 40 }}>Nenhum print disponivel.</p>
         )}
       </div>
     </div>
@@ -87,9 +87,9 @@ function PrintsModal({ postId, fallbackUrl, onClose }) {
 function EditMetricsModal({ post, onSave, onClose }) {
   const FIELDS = [
     { key: 'reach', label: 'Alcance' },
-    { key: 'impressions', label: 'Impressões' },
+    { key: 'impressions', label: 'Impressoes' },
     { key: 'likes', label: 'Curtidas' },
-    { key: 'comments', label: 'Comentários' },
+    { key: 'comments', label: 'Comentarios' },
     { key: 'shares', label: 'Compartilhamentos' },
     { key: 'saves', label: 'Salvamentos' },
     { key: 'plays', label: 'Plays' },
@@ -117,7 +117,7 @@ function EditMetricsModal({ post, onSave, onClose }) {
       await api.patch(`/admin/posts/${post.id}`, payload);
       onSave({ ...post, ...payload });
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao salvar métricas.');
+      setError(err.response?.data?.error || 'Erro ao salvar metricas.');
     } finally {
       setSaving(false);
     }
@@ -128,11 +128,11 @@ function EditMetricsModal({ post, onSave, onClose }) {
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-card">
         <div className="modal-header">
-          <h2 className="modal-title">Editar Métricas</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <h2 className="modal-title">Editar Metricas</h2>
+          <button className="modal-close" onClick={onClose}>x</button>
         </div>
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16, fontFamily: 'Arial' }}>
-          {post.title || 'Post sem título'}
+        <p style={{ fontSize: 13, color: 'var(--ink-muted)', marginBottom: 16 }}>
+          {post.title || 'Post sem titulo'}
         </p>
         {error && <div className="alert alert-error">{error}</div>}
         <div className={styles.editGrid}>
@@ -178,7 +178,6 @@ export default function AdminAllPosts() {
   const [expandedPost, setExpandedPost] = useState(null);
   const [editPost, setEditPost] = useState(null);
 
-  // Load influencer list for filter dropdown
   useEffect(() => {
     api.get('/admin/influencers').then((res) => {
       setInfluencers(flattenRanking(res.data?.ranking));
@@ -186,7 +185,6 @@ export default function AdminAllPosts() {
   }, []);
 
   const buildParams = useCallback(() => {
-    // Param names match the backend query contract (admin.js).
     const p = { page, pageSize: PAGE_SIZE };
     if (influencerFilter) p.influencerId = influencerFilter;
     if (monthFilter) p.month = monthFilter;
@@ -220,6 +218,16 @@ export default function AdminAllPosts() {
     e.preventDefault();
     setPage(1);
     fetchPosts();
+  };
+
+  const clearAllFilters = () => {
+    setInfluencerFilter('');
+    setMonthFilter('');
+    setYearFilter(String(CURRENT_YEAR));
+    setPlatformFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
   };
 
   const handleDelete = async (post) => {
@@ -259,19 +267,33 @@ export default function AdminAllPosts() {
   const yearOptions = [];
   for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) yearOptions.push(String(y));
 
+  const activeChips = [];
+  if (influencerFilter) {
+    const inf = influencers.find((i) => i.id === influencerFilter);
+    activeChips.push({ key: 'influencer', label: inf?.display_name || inf?.username || 'Influenciador', clear: () => setInfluencerFilter('') });
+  }
+  if (monthFilter) {
+    const m = MONTHS.find((m) => m.value === monthFilter);
+    activeChips.push({ key: 'month', label: m?.label || monthFilter, clear: () => setMonthFilter('') });
+  }
+  if (platformFilter) {
+    activeChips.push({ key: 'platform', label: platformFilter, clear: () => setPlatformFilter('') });
+  }
+  if (dateFrom) activeChips.push({ key: 'dateFrom', label: `De ${dateFrom}`, clear: () => setDateFrom('') });
+  if (dateTo) activeChips.push({ key: 'dateTo', label: `Ate ${dateTo}`, clear: () => setDateTo('') });
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">Todos os Posts</h1>
-        <button className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <IconDownload size={14} /> Exportar CSV
+        <button className="btn btn-secondary" onClick={handleExportCSV}>
+          <IconDownload size={14} /> Exportar {total > 0 ? `${total} posts` : 'CSV'}
         </button>
       </div>
 
-      {/* Filter bar */}
       <form onSubmit={handleFilterSubmit} className="filter-bar">
         <select className="form-control" style={{ width: 'auto' }} value={influencerFilter} onChange={(e) => setInfluencerFilter(e.target.value)}>
-          <option value="">Todos os influenciadores</option>
+          <option value="">Influenciador</option>
           {influencers.map((inf) => (
             <option key={inf.id} value={inf.id}>{inf.display_name || inf.username}</option>
           ))}
@@ -286,20 +308,27 @@ export default function AdminAllPosts() {
         <select className="form-control" style={{ width: 'auto' }} value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
           {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
-        <input type="date" className="form-control" style={{ width: 'auto' }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} placeholder="De" />
-        <input type="date" className="form-control" style={{ width: 'auto' }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} placeholder="Até" />
+        <input type="date" className="form-control" style={{ width: 'auto' }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        <input type="date" className="form-control" style={{ width: 'auto' }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         <button type="submit" className="btn btn-primary btn-sm">Filtrar</button>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
-          setInfluencerFilter(''); setMonthFilter(''); setYearFilter(String(CURRENT_YEAR));
-          setPlatformFilter(''); setDateFrom(''); setDateTo(''); setPage(1);
-        }}>Limpar</button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={clearAllFilters}>Limpar</button>
       </form>
+
+      {activeChips.length > 0 && (
+        <div className={styles.filterChipsRow}>
+          {activeChips.map((chip) => (
+            <span key={chip.key} className={styles.filterChip}>
+              {chip.label}
+              <button className={styles.filterChipRemove} onClick={chip.clear} aria-label={`Remover filtro ${chip.label}`}>x</button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {/* Table */}
       {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 8 }} />
+        <div className="skeleton" style={{ height: 300, borderRadius: 16 }} />
       ) : (
         <>
           <div className="table-container">
@@ -313,55 +342,74 @@ export default function AdminAllPosts() {
                   <th>Alcance</th>
                   <th>Curtidas</th>
                   <th>Engajamento</th>
-                  <th>Ações</th>
+                  <th>Acoes</th>
                 </tr>
               </thead>
               <tbody>
                 {posts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', color: '#888', padding: 32 }}>
-                      Nenhum post encontrado com os filtros selecionados.
-                    </td>
-                  </tr>
-                ) : posts.map((post) => (
-                  <tr key={post.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {post.image_url ? (
-                          <img
-                            src={post.image_url}
-                            alt=""
-                            style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, cursor: 'pointer', border: '1px solid var(--border)' }}
-                            onClick={() => setExpandedPost(post)}
-                          />
-                        ) : (
-                          <div style={{ width: 48, height: 48, background: 'var(--surface)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                            <IconCamera size={18} />
-                          </div>
-                        )}
-                        <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem título'}</span>
-                      </div>
-                    </td>
-                    <td style={{ fontSize: 13 }}>{post.influencer_name || post.display_name || '—'}</td>
-                    <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
-                    <td style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{formatDate(post.published_date || post.created_at)}</td>
-                    <td>{formatNum(post.reach)}</td>
-                    <td>{formatNum(post.likes)}</td>
-                    <td>{post.engagement_rate != null ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setExpandedPost(post)}>Ver</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditPost(post)}>Editar</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(post)}>Excluir</button>
+                    <td colSpan={8} style={{ padding: 0, border: 0 }}>
+                      <div className={styles.emptyState}>
+                        <div className={styles.emptyIcon}>
+                          <IconCamera size={22} />
+                        </div>
+                        <p className={styles.emptyTitle}>Nenhum post encontrado</p>
+                        <p className={styles.emptySubtitle}>Tente ajustar os filtros acima</p>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : posts.map((post) => {
+                  const eng = post.engagement_rate != null ? parseFloat(post.engagement_rate) : null;
+                  return (
+                    <tr key={post.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {post.image_url ? (
+                            <img
+                              src={post.image_url}
+                              alt=""
+                              style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '1px solid var(--border)', flexShrink: 0 }}
+                              onClick={() => setExpandedPost(post)}
+                            />
+                          ) : (
+                            <div style={{ width: 40, height: 40, background: 'var(--surface-muted)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-muted)', flexShrink: 0 }}>
+                              <IconCamera size={16} />
+                            </div>
+                          )}
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem titulo'}</span>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: 13 }}>{post.influencer_name || post.display_name || '—'}</td>
+                      <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
+                      <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{formatDate(post.published_date || post.created_at)}</td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.reach)}</td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.likes)}</td>
+                      <td>
+                        <div className={styles.engagementCell}>
+                          <span className={styles.engagementValue}>
+                            {eng != null ? `${eng.toFixed(2)}%` : '—'}
+                          </span>
+                          {eng != null && eng > 0 && (
+                            <div className={styles.engagementBar}>
+                              <div className={styles.engagementFill} style={{ width: `${Math.min(eng * 5, 100)}%` }} />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setExpandedPost(post)}>Ver</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditPost(post)}>Editar</button>
+                          <button className="btn btn-danger-outline btn-sm" onClick={() => handleDelete(post)}>Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="pagination">
               <button className="page-btn" disabled={page === 1} onClick={() => setPage(1)}>«</button>
@@ -381,7 +429,6 @@ export default function AdminAllPosts() {
         </>
       )}
 
-      {/* Modals */}
       {expandedPost && (
         <PrintsModal postId={expandedPost.id} fallbackUrl={expandedPost.image_url} onClose={() => setExpandedPost(null)} />
       )}

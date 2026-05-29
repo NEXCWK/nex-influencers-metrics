@@ -1,6 +1,133 @@
-.filters {
+.stickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  padding: 20px 0 16px;
+  margin-top: -20px;
+  margin-bottom: 0;
+}
+
+.toolbarPill {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-badge);
+  padding: 5px 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.toolbarPill select.form-control {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 5px 10px;
+  font-size: 13px;
+  border-radius: var(--radius-badge);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.toolbarPill select.form-control:focus {
+  background: var(--accent-soft);
+  box-shadow: none;
+  border-color: transparent;
+}
+
+.toolbarDivider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.rankChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  color: #7a5800;
+  font-family: var(--font);
+}
+
+.rankNum {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  font-family: var(--font);
+}
+
+.influencerBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font);
+  color: var(--ink);
+  padding: 0;
+  text-align: left;
+  transition: color 0.12s;
+}
+
+.influencerBtn:hover {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sparkbarWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sparkbarTrack {
+  flex: 1;
+  max-width: 56px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.sparkbarFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--ink-muted);
+}
+
+.emptyStateTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  font-family: var(--font);
+}
+
+.emptyStateLink {
+  font-size: 13px;
+  color: var(--ink-muted);
+  font-family: var(--font);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
 }

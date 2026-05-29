@@ -4,7 +4,7 @@
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
-  background: var(--background);
+  background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -31,7 +31,7 @@
   font-size: 9.5px;
   font-family: var(--font);
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--ink-muted);
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
@@ -54,24 +54,27 @@
   font-size: 13.5px;
   font-family: var(--font);
   font-weight: 400;
-  color: var(--text-secondary);
+  color: var(--ink-muted);
   text-decoration: none;
   transition: background 0.12s, color 0.12s;
+  border-left: 3px solid transparent;
+  padding-left: 9px;
 }
 
 .navLink:hover {
-  background: var(--surface);
-  color: var(--text-primary);
+  background: var(--surface-muted);
+  color: var(--ink);
 }
 
 .navLinkActive {
-  background: var(--text-primary);
+  background: var(--ink);
   color: #ffffff;
   font-weight: 600;
+  border-left: 3px solid var(--accent);
 }
 
 .navLinkActive:hover {
-  background: #1a1a1a;
+  background: var(--ink-soft);
   color: #ffffff;
 }
 
@@ -93,17 +96,25 @@
 .bottomSection {
   padding: 12px 12px 14px;
   border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  position: relative;
 }
 
-.userInfo {
+.userTrigger {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 7px 8px;
   border-radius: 9px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.userTrigger:hover {
+  background: var(--surface-muted);
 }
 
 .userAvatar {
@@ -111,7 +122,7 @@
   height: 30px;
   border-radius: 50%;
   background: var(--accent);
-  color: var(--text-primary);
+  color: var(--ink);
   font-weight: 800;
   font-size: 12px;
   font-family: var(--font);
@@ -143,7 +154,7 @@
   font-size: 12.5px;
   font-weight: 700;
   font-family: var(--font);
-  color: var(--text-primary);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -154,27 +165,66 @@
   font-size: 10.5px;
   font-family: var(--font);
   font-weight: 400;
-  color: var(--text-secondary);
+  color: var(--ink-muted);
 }
 
-.logoutBtn {
+.chevron {
+  color: var(--ink-muted);
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Avatar dropdown menu ─────────────────────────────────────────────────── */
+.avatarMenu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 8px;
+  right: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  animation: cardEnter 150ms ease-out both;
+  z-index: 200;
+}
+
+.avatarMenuItem {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
   background: none;
   border: none;
-  border-radius: 9px;
-  padding: 8px 10px;
-  font-size: 12.5px;
+  cursor: pointer;
+  font-size: 13.5px;
   font-family: var(--font);
   font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  width: 100%;
+  text-align: left;
+  color: var(--ink);
+  transition: background 0.1s;
+  text-decoration: none;
 }
 
-.logoutBtn:hover {
-  background: var(--surface);
-  color: var(--text-primary);
+.avatarMenuItem:hover {
+  background: var(--surface-muted);
+}
+
+.avatarMenuDivider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+.avatarMenuLogout {
+  color: var(--danger);
+}
+
+.avatarMenuLogout:hover {
+  background: var(--danger-bg);
 }
