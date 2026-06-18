@@ -82,7 +82,7 @@ router.get('/', async (req, res, next) => {
       .from('posts')
       .select(
         `id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
-         metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, created_at)`
+         metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, extra_metrics, created_at)`
       )
       .eq('user_id', req.user.id)
       .order('published_at', { ascending: false });
@@ -220,11 +220,14 @@ router.post(
             files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }))
           );
 
-          // Store raw AI response on the post
-          await supabase
+          // Store raw AI response on the post (best-effort — column may not exist yet)
+          const { error: rawSaveErr } = await supabase
             .from('posts')
             .update({ ai_raw_response: aiResult })
             .eq('id', postId);
+          if (rawSaveErr && !/ai_raw_response/i.test(rawSaveErr.message)) {
+            console.warn('ai_raw_response update warning:', rawSaveErr.message);
+          }
         } catch (aiErr) {
           console.error('AI extraction error:', aiErr.message);
           extractionFailed = true;
@@ -300,24 +303,36 @@ router.post('/:id/confirm', async (req, res, next) => {
     } = req.body;
 
     // Upsert metrics (insert or update if already exists for this post)
-    const { error: upsertError } = await supabase.from('metrics').upsert(
-      {
-        post_id: id,
-        reach: reach ?? null,
-        impressions: impressions ?? null,
-        likes: likes ?? null,
-        comments: comments ?? null,
-        shares: shares ?? null,
-        saves: saves ?? null,
-        plays: plays ?? null,
-        engagement_rate: engagement_rate ?? null,
-        profile_visits: profile_visits ?? null,
-        link_clicks: link_clicks ?? null,
-        manually_edited: manually_edited === true,
-        extra_metrics: extra_metrics || null,
-      },
-      { onConflict: 'post_id' }
-    );
+    const metricsPayload = {
+      post_id: id,
+      reach: reach ?? null,
+      impressions: impressions ?? null,
+      likes: likes ?? null,
+      comments: comments ?? null,
+      shares: shares ?? null,
+      saves: saves ?? null,
+      plays: plays ?? null,
+      engagement_rate: engagement_rate ?? null,
+      profile_visits: profile_visits ?? null,
+      link_clicks: link_clicks ?? null,
+      manually_edited: manually_edited === true,
+      ...(extra_metrics != null ? { extra_metrics } : {}),
+    };
+
+    let { error: upsertError } = await supabase
+      .from('metrics')
+      .upsert(metricsPayload, { onConflict: 'post_id' });
+
+    // Graceful fallback: if extra_metrics column does not exist yet, retry without it.
+    // Fix: run  ALTER TABLE metrics ADD COLUMN IF NOT EXISTS extra_metrics jsonb;
+    if (upsertError && /extra_metrics/i.test(upsertError.message)) {
+      console.warn('extra_metrics column missing — retrying without it.');
+      const { extra_metrics: _dropped, ...payloadWithout } = metricsPayload;
+      const fallbackResult = await supabase
+        .from('metrics')
+        .upsert(payloadWithout, { onConflict: 'post_id' });
+      upsertError = fallbackResult.error;
+    }
 
     if (upsertError) {
       console.error('Metrics upsert error:', upsertError.message);
@@ -340,7 +355,7 @@ router.post('/:id/confirm', async (req, res, next) => {
       .from('posts')
       .select(
         `id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user,
-         metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, created_at)`
+         metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, extra_metrics, created_at)`
       )
       .eq('id', id)
       .single();
