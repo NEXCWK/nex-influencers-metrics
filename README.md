@@ -112,7 +112,7 @@ create table posts (
 
 create table metrics (
   id uuid primary key default gen_random_uuid(),
-  post_id uuid references posts(id) on delete cascade,
+  post_id uuid unique references posts(id) on delete cascade,
   reach integer,
   impressions integer,
   likes integer,
@@ -124,6 +124,7 @@ create table metrics (
   profile_visits integer,
   link_clicks integer,
   manually_edited boolean default false,
+  extra_metrics jsonb,
   created_at timestamp default now()
 );
 
@@ -146,6 +147,13 @@ alter table coupon_records enable row level security;
 
 Crie o bucket `post-prints` como **privado** no painel do Supabase Storage
 (o backend o cria automaticamente no primeiro upload, caso não exista).
+
+### Migração — unique constraint em metrics.post_id (obrigatória para bancos existentes)
+
+```sql
+-- Necessário para o upsert de métricas funcionar corretamente
+CREATE UNIQUE INDEX IF NOT EXISTS metrics_post_id_unique ON metrics (post_id);
+```
 
 ### Migração — perfil e cupons (rode se o banco já existia antes destas features)
 
