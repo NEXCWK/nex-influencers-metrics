@@ -21,7 +21,7 @@ const CURRENT_MONTH = new Date().getMonth() + 1;
 const COMPARE_METRICS = [
   { key: 'reach', label: 'Alcance' },
   { key: 'likes', label: 'Curtidas' },
-  { key: 'impressions', label: 'Impressões' },
+  { key: 'impressions', label: 'Visualizações' },
 ];
 
 function SkeletonCard() {
@@ -143,7 +143,7 @@ export default function Dashboard() {
               previousValue={prev.avg_engagement_rate}
             />
             <MetricCard
-              label="Impressões Totais"
+              label="Visualizações Totais"
               value={cur.total_impressions}
               icon={<IconEye size={16} />}
               previousValue={prev.total_impressions}

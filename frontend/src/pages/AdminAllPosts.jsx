@@ -87,7 +87,7 @@ function PrintsModal({ postId, fallbackUrl, onClose }) {
 function EditMetricsModal({ post, onSave, onClose }) {
   const FIELDS = [
     { key: 'reach', label: 'Alcance' },
-    { key: 'impressions', label: 'Impressoes' },
+    { key: 'impressions', label: 'Visualizacoes' },
     { key: 'likes', label: 'Curtidas' },
     { key: 'comments', label: 'Comentarios' },
     { key: 'shares', label: 'Compartilhamentos' },

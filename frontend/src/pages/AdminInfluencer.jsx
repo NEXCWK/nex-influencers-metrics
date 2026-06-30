@@ -23,7 +23,7 @@ const CURRENT_MONTH = new Date().getMonth() + 1;
 const COMPARE_METRICS = [
   { key: 'reach', label: 'Alcance' },
   { key: 'likes', label: 'Curtidas' },
-  { key: 'impressions', label: 'Impressoes' },
+  { key: 'impressions', label: 'Visualizacoes' },
 ];
 
 const PLATFORM_CHIP_CLASS = {
@@ -97,7 +97,7 @@ function PostImageModal({ post, onClose }) {
             ['Curtidas', post.likes],
             ['Comentarios', post.comments],
             ['Compartilhamentos', post.shares],
-            ['Impressoes', post.impressions],
+            ['Visualizacoes', post.impressions],
             ['Engajamento', post.engagement_rate ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'],
             ['Plays', post.plays],
             ['Salvamentos', post.saves],
@@ -257,7 +257,7 @@ export default function AdminInfluencer() {
             <MetricCard label="Total de Posts" value={cur.total_posts} icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
             <MetricCard label="Alcance Total" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
             <MetricCard label="Engajamento Medio" value={cur.avg_engagement_rate} unit="%" icon={<IconMessageCircle size={16} />} previousValue={prev.avg_engagement_rate} />
-            <MetricCard label="Impressoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
+            <MetricCard label="Visualizacoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
           </>
         )}
       </div>

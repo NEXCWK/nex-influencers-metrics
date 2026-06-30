@@ -29,13 +29,28 @@ alcançados", "Reproduções", "Tempo médio de visualização", "Seguidores con
 "Duração média assistida", "Cliques no perfil", etc.) deve ser incluída no objeto
 "extra" com nomes de chave em português usando snake_case.
 
+MAPEAMENTO OBRIGATÓRIO (terminologia atual do Instagram/Meta) — siga à risca:
+- "reach" (Alcance) = SEMPRE o número rotulado como "Contas alcançadas".
+  Exemplo: se o print mostra "Contas alcançadas 7.660", então reach = 7660.
+- "impressions" (Visualizações) = SEMPRE o número grande rotulado como
+  "Visualizações" (o total de views do card "Visualizações", no topo).
+  Exemplo: se o print mostra "Visualizações 12.157", então impressions = 12157.
+- NUNCA troque os dois: "Visualizações" NÃO é alcance, e "Contas alcançadas"
+  NÃO é visualizações. São métricas distintas e quase sempre têm valores
+  diferentes (Visualizações costuma ser maior que Contas alcançadas).
+- "plays" = reproduções de vídeo/reel, quando rotulado explicitamente como
+  "Reproduções". Se a plataforma só mostra "Visualizações" (e não "Reproduções"),
+  deixe plays = null e use impressions.
+- Em plataformas que ainda usam o rótulo "Impressões", trate "Impressões" como
+  impressions.
+
 Regras de consolidação:
 - Para cada métrica, use o valor visível em qualquer um dos prints.
 - Se a mesma métrica aparecer em mais de um print com valores diferentes, use o valor
   mais claro/legível e registre a divergência em "notes".
 - Se uma métrica não estiver visível em nenhum print, retorne null para ela.
 - Converta métricas percentuais para número decimal (ex: 4,5% → 4.5).
-- Remova formatação de milhar e retorne sempre números puros.
+- Remova formatação de milhar e retorne sempre números puros (12.157 → 12157).
 
 Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no seguinte formato:
 

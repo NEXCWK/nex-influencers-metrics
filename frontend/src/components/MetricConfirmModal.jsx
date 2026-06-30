@@ -4,13 +4,13 @@ import { IconAlert, IconPencil, IconLock } from './Icons.jsx';
 import styles from './MetricConfirmModal.module.css';
 
 const METRIC_FIELDS = [
-  { key: 'reach', label: 'Alcance (Reach)' },
-  { key: 'impressions', label: 'Impressões' },
+  { key: 'reach', label: 'Alcance (Contas alcançadas)' },
+  { key: 'impressions', label: 'Visualizações' },
   { key: 'likes', label: 'Curtidas' },
   { key: 'comments', label: 'Comentários' },
   { key: 'shares', label: 'Compartilhamentos' },
   { key: 'saves', label: 'Salvamentos' },
-  { key: 'plays', label: 'Plays / Views' },
+  { key: 'plays', label: 'Reproduções (vídeo)' },
   { key: 'engagement_rate', label: 'Taxa de Engajamento (%)' },
   { key: 'profile_visits', label: 'Visitas ao Perfil' },
   { key: 'link_clicks', label: 'Cliques no Link' },
