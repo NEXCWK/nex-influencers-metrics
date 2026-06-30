@@ -18,6 +18,10 @@ const adminLinks = [
   { to: '/admin', label: 'Visao Geral', icon: <IconGrid size={15} />, end: true },
   { to: '/admin/posts', label: 'Todos os Posts', icon: <IconList size={15} /> },
   { to: '/admin/users', label: 'Usuarios', icon: <IconUsers size={15} /> },
+  // Admins também têm o fluxo do influenciador (Dashboard pessoal + envio de
+  // posts/métricas) para testar o processo completo ponta a ponta.
+  { to: '/dashboard', label: 'Meu Dashboard', icon: <IconGrid size={15} /> },
+  { to: '/upload', label: 'Novo Post', icon: <IconUpload size={15} /> },
   { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
   { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
 ];
