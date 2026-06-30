@@ -4,9 +4,18 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const client = new Anthropic.default({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  // Bound retries so a single slow/overloaded extraction can't pile up
+  // re-sends of every print and blow past the request budget.
+  maxRetries: 1,
 });
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+
+// Hard timeout for the extraction call. Must stay well under the frontend's
+// upload timeout so the request always returns: if the AI is slow or the API
+// is overloaded, we fail fast and fall back to manual metric entry instead of
+// leaving the upload hanging until the client gives up.
+const AI_TIMEOUT_MS = 60 * 1000;
 
 const EXTRACTION_PROMPT = `Você é um sistema de extração de métricas de redes sociais.
 
@@ -92,16 +101,19 @@ async function extractMetricsFromImages(images) {
     },
   }));
 
-  const message = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: [...imageBlocks, { type: 'text', text: EXTRACTION_PROMPT }],
-      },
-    ],
-  });
+  const message = await client.messages.create(
+    {
+      model: MODEL,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [...imageBlocks, { type: 'text', text: EXTRACTION_PROMPT }],
+        },
+      ],
+    },
+    { timeout: AI_TIMEOUT_MS }
+  );
 
   return parseAiJson(message.content[0].text);
 }
