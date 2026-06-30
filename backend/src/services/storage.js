@@ -99,6 +99,66 @@ async function removeFile(path) {
 }
 
 /**
+ * Maps a stored file name to a MIME type based on its extension.
+ */
+function mimeFromName(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const map = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    webp: 'image/webp',
+    gif: 'image/gif',
+  };
+  return map[ext] || 'image/jpeg';
+}
+
+/**
+ * Downloads a single stored object as a Buffer.
+ *
+ * @param {string} path - The storage path.
+ * @returns {Promise<Buffer>}
+ */
+async function downloadImage(path) {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error) {
+    throw new Error(`Storage download failed: ${error.message}`);
+  }
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
+/**
+ * Downloads every print of a post (all files in the post folder) as buffers,
+ * ready to be re-sent to the AI extraction service.
+ *
+ * @param {string} imagePath - Any print path in the post folder (e.g. image_url).
+ * @returns {Promise<Array<{buffer: Buffer, mimeType: string}>>}
+ */
+async function downloadPostPrints(imagePath) {
+  if (!imagePath) return [];
+
+  const folder = imagePath.includes('/')
+    ? imagePath.substring(0, imagePath.lastIndexOf('/'))
+    : null;
+  if (!folder) return [];
+
+  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder);
+  if (error || !files || files.length === 0) return [];
+
+  const sorted = [...files].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true })
+  );
+
+  const out = [];
+  for (const f of sorted) {
+    const buffer = await downloadImage(`${folder}/${f.name}`);
+    out.push({ buffer, mimeType: mimeFromName(f.name) });
+  }
+  return out;
+}
+
+/**
  * Generates a signed URL for a private storage object.
  *
  * @param {string} path - The storage path returned by uploadImage.
@@ -178,4 +238,4 @@ async function listImages(imagePath) {
   return urls.filter(Boolean);
 }
 
-module.exports = { uploadImage, uploadAvatar, removeFile, getSignedUrl, deleteImage, ensureBucket, listImages };
+module.exports = { uploadImage, uploadAvatar, removeFile, getSignedUrl, deleteImage, ensureBucket, listImages, downloadImage, downloadPostPrints };

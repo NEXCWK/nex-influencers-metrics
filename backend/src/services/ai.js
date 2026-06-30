@@ -44,6 +44,25 @@ MAPEAMENTO OBRIGATÓRIO (terminologia atual do Instagram/Meta) — siga à risca
 - Em plataformas que ainda usam o rótulo "Impressões", trate "Impressões" como
   impressions.
 
+MÉTRICAS DE STORIES (Instagram) — prints de story mostram rótulos diferentes de
+um post de feed. Faça o melhor mapeamento possível para os campos padrão e jogue
+o restante em "extra":
+- "Contas alcançadas" → reach (igual à regra acima).
+- "Compartilhamentos" → shares.
+- "Visitas ao perfil" → profile_visits.
+- "Toques no link", "Cliques no link" ou "Toques no sticker de link" → link_clicks.
+- "Respostas" → comments (respostas ao story contam como comentários aqui).
+- "Curtidas" → likes (quando existir).
+- Navegação e demais interações de story ("Avançar", "Voltar", "Sair",
+  "Próximo story", "Toques no sticker", "Adesivos", etc.) → coloque em "extra"
+  com snake_case (ex: {"avancar": 120, "sair": 30, "toques_sticker": 15}).
+- Um story normalmente NÃO possui "Visualizações"/"Impressões" nem taxa de
+  engajamento; nesses casos deixe esses campos como null em vez de inventar.
+
+REGRA GERAL: nunca deixe de extrair uma métrica que esteja visível. Se ela não se
+encaixar perfeitamente em nenhum campo padrão, ela DEVE aparecer em "extra". Só
+retorne null para uma métrica que realmente não aparece em nenhum print.
+
 Regras de consolidação:
 - Para cada métrica, use o valor visível em qualquer um dos prints.
 - Se a mesma métrica aparecer em mais de um print com valores diferentes, use o valor

@@ -8,6 +8,7 @@ const authenticate = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/role');
 const metricsService = require('../services/metrics');
 const storage = require('../services/storage');
+const ai = require('../services/ai');
 
 const router = express.Router();
 
@@ -250,6 +251,131 @@ router.get('/posts/:id/prints', async (req, res, next) => {
 
     const prints = await storage.listImages(post.image_url);
     return res.json({ prints });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Helper: map an AI extraction result to a metrics upsert payload
+// ---------------------------------------------------------------------------
+function aiResultToMetricsPayload(postId, result) {
+  const num = (v) => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const extra =
+    result && result.extra && typeof result.extra === 'object' && Object.keys(result.extra).length > 0
+      ? result.extra
+      : null;
+
+  return {
+    post_id: postId,
+    reach: num(result?.reach),
+    impressions: num(result?.impressions),
+    likes: num(result?.likes),
+    comments: num(result?.comments),
+    shares: num(result?.shares),
+    saves: num(result?.saves),
+    plays: num(result?.plays),
+    engagement_rate: num(result?.engagement_rate),
+    profile_visits: num(result?.profile_visits),
+    link_clicks: num(result?.link_clicks),
+    manually_edited: false,
+    ...(extra != null ? { extra_metrics: extra } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// POST /admin/posts/:id/reprocess — re-run AI extraction on a post's stored
+// prints and overwrite its metrics. Skips posts whose metrics were manually
+// edited (unless body.force === true) so human corrections are never lost.
+// ---------------------------------------------------------------------------
+router.post('/posts/:id/reprocess', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const force = req.body && req.body.force === true;
+
+    const { data: post, error: fetchError } = await supabase
+      .from('posts')
+      .select('id, image_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Reprocess fetch post error:', fetchError.message);
+      return res.status(500).json({ error: 'Failed to fetch post' });
+    }
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    if (!post.image_url) {
+      return res.status(400).json({ error: 'Este post não possui prints armazenados' });
+    }
+
+    // Preserve manual corrections unless explicitly forced.
+    const { data: existing } = await supabase
+      .from('metrics')
+      .select('manually_edited')
+      .eq('post_id', id)
+      .maybeSingle();
+
+    if (existing && existing.manually_edited && !force) {
+      return res.json({ skipped: true, reason: 'manually_edited' });
+    }
+
+    // Download every stored print and re-run AI extraction.
+    const images = await storage.downloadPostPrints(post.image_url);
+    if (images.length === 0) {
+      return res.status(400).json({ error: 'Não foi possível ler os prints armazenados deste post' });
+    }
+
+    let result;
+    try {
+      result = await ai.extractMetricsFromImages(images);
+    } catch (aiErr) {
+      console.error('Reprocess AI error:', aiErr.message);
+      return res.status(502).json({ error: `Falha na extração por IA: ${aiErr.message}` });
+    }
+
+    // Persist raw AI response (best effort — column may not exist yet).
+    const { error: rawErr } = await supabase
+      .from('posts')
+      .update({ ai_raw_response: result })
+      .eq('id', id);
+    if (rawErr && !/ai_raw_response/i.test(rawErr.message)) {
+      console.warn('Reprocess ai_raw_response warning:', rawErr.message);
+    }
+
+    // Upsert metrics, with graceful fallback if extra_metrics column is missing.
+    const payload = aiResultToMetricsPayload(id, result);
+    let { error: upsertError } = await supabase
+      .from('metrics')
+      .upsert(payload, { onConflict: 'post_id' });
+
+    if (upsertError && /extra_metrics/i.test(upsertError.message)) {
+      const { extra_metrics: _dropped, ...without } = payload;
+      const retry = await supabase.from('metrics').upsert(without, { onConflict: 'post_id' });
+      upsertError = retry.error;
+    }
+
+    if (upsertError) {
+      console.error('Reprocess metrics upsert error:', upsertError.message);
+      return res.status(500).json({ error: 'Falha ao salvar métricas reprocessadas' });
+    }
+
+    const { data: metrics } = await supabase
+      .from('metrics')
+      .select('*')
+      .eq('post_id', id)
+      .single();
+
+    return res.json({
+      metrics,
+      confidence: result.confidence ?? null,
+      notes: result.notes ?? null,
+    });
   } catch (err) {
     next(err);
   }

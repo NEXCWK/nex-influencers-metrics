@@ -177,6 +177,8 @@ export default function AdminAllPosts() {
   const [error, setError] = useState('');
   const [expandedPost, setExpandedPost] = useState(null);
   const [editPost, setEditPost] = useState(null);
+  const [reprocessingId, setReprocessingId] = useState(null);
+  const [bulkProgress, setBulkProgress] = useState(null);
 
   useEffect(() => {
     api.get('/admin/influencers').then((res) => {
@@ -263,6 +265,51 @@ export default function AdminAllPosts() {
     setEditPost(null);
   };
 
+  const METRIC_KEYS = [
+    'reach', 'impressions', 'likes', 'comments', 'shares',
+    'saves', 'plays', 'engagement_rate', 'profile_visits', 'link_clicks',
+  ];
+  const isMissingMetrics = (p) => METRIC_KEYS.every((k) => p[k] == null);
+
+  // Re-run AI extraction on a single post's stored prints.
+  const handleReprocess = async (post) => {
+    setReprocessingId(post.id);
+    try {
+      const res = await api.post(`/admin/posts/${post.id}/reprocess`, {}, { timeout: 120000 });
+      if (res.data?.skipped) {
+        alert('As métricas deste post foram editadas manualmente e não foram sobrescritas. Use "Editar" para ajustar.');
+      }
+      await fetchPosts();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao reprocessar as métricas deste post.');
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
+  // Re-run AI extraction for every post on the current page that has no metrics.
+  const handleReprocessMissing = async () => {
+    const targets = posts.filter(isMissingMetrics);
+    if (targets.length === 0) {
+      alert('Nenhum post sem métricas nesta página.');
+      return;
+    }
+    if (!window.confirm(`Reprocessar ${targets.length} post(s) sem métricas desta página? A IA será executada novamente sobre os prints já enviados.`)) {
+      return;
+    }
+    setBulkProgress({ done: 0, total: targets.length });
+    for (let i = 0; i < targets.length; i++) {
+      try {
+        await api.post(`/admin/posts/${targets[i].id}/reprocess`, {}, { timeout: 120000 });
+      } catch {
+        // continua para os próximos mesmo se um falhar
+      }
+      setBulkProgress({ done: i + 1, total: targets.length });
+    }
+    setBulkProgress(null);
+    await fetchPosts();
+  };
+
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const yearOptions = [];
   for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) yearOptions.push(String(y));
@@ -286,9 +333,21 @@ export default function AdminAllPosts() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Todos os Posts</h1>
-        <button className="btn btn-secondary" onClick={handleExportCSV}>
-          <IconDownload size={14} /> Exportar {total > 0 ? `${total} posts` : 'CSV'}
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            className="btn btn-secondary"
+            onClick={handleReprocessMissing}
+            disabled={!!bulkProgress || loading}
+            title="Re-executa a IA sobre os prints dos posts sem métricas nesta página"
+          >
+            {bulkProgress
+              ? `Reprocessando ${bulkProgress.done}/${bulkProgress.total}...`
+              : 'Reprocessar faltantes'}
+          </button>
+          <button className="btn btn-secondary" onClick={handleExportCSV}>
+            <IconDownload size={14} /> Exportar {total > 0 ? `${total} posts` : 'CSV'}
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleFilterSubmit} className="filter-bar">
@@ -400,6 +459,14 @@ export default function AdminAllPosts() {
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-secondary btn-sm" onClick={() => setExpandedPost(post)}>Ver</button>
                           <button className="btn btn-secondary btn-sm" onClick={() => setEditPost(post)}>Editar</button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleReprocess(post)}
+                            disabled={reprocessingId === post.id || !!bulkProgress}
+                            title="Re-executar a extração de métricas por IA sobre os prints deste post"
+                          >
+                            {reprocessingId === post.id ? 'Extraindo...' : 'Re-extrair'}
+                          </button>
                           <button className="btn btn-danger-outline btn-sm" onClick={() => handleDelete(post)}>Excluir</button>
                         </div>
                       </td>
