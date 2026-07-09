@@ -147,6 +147,16 @@ alter table coupon_records enable row level security;
 Crie o bucket `post-prints` como **privado** no painel do Supabase Storage
 (o backend o cria automaticamente no primeiro upload, caso não exista).
 
+### Migração — tipo de publicação (Feed vs Story)
+
+```sql
+-- Classifica cada post como 'feed' ou 'story' e popula os dados existentes
+-- (posts com "story" no título viram story; os demais, feed).
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS post_type text DEFAULT 'feed';
+UPDATE posts SET post_type = 'story' WHERE lower(coalesce(title, '')) LIKE '%story%';
+UPDATE posts SET post_type = 'feed' WHERE post_type IS NULL;
+```
+
 ### Migração — perfil e cupons (rode se o banco já existia antes destas features)
 
 ```sql

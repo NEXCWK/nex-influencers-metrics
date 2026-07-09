@@ -187,13 +187,64 @@ async function getAdminOverview(year, month) {
     ? await fetchAggregatedForRange(null, start, end)
     : null;
 
+  // Totals by post type (feed vs story) this month
+  const countsByUser = await countPostTypesByUser(start, end);
+  let totalFeed = 0;
+  let totalStories = 0;
+  for (const uid of Object.keys(countsByUser)) {
+    totalFeed += countsByUser[uid].feed;
+    totalStories += countsByUser[uid].story;
+  }
+
   return {
     year: parseInt(year, 10),
     month: parseInt(month, 10),
     total_posts: totalPosts,
+    total_feed: totalFeed,
+    total_stories: totalStories,
     active_influencers: activeInfluencers,
     aggregate,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: count feed vs story posts per user over a date range.
+// Returns { [userId]: { feed, story } }. Degrades gracefully to all-feed if
+// the post_type column does not exist yet (migration 003 not run).
+// ---------------------------------------------------------------------------
+async function countPostTypesByUser(rangeStart, rangeEnd) {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('user_id, post_type')
+    .gte('published_at', rangeStart)
+    .lt('published_at', rangeEnd);
+
+  const result = {};
+
+  if (error) {
+    // Column missing or other issue: fall back to counting everything as feed.
+    if (!/post_type/i.test(error.message)) {
+      throw new Error(error.message);
+    }
+    const { data: fallback, error: fbErr } = await supabase
+      .from('posts')
+      .select('user_id')
+      .gte('published_at', rangeStart)
+      .lt('published_at', rangeEnd);
+    if (fbErr) throw new Error(fbErr.message);
+    for (const p of fallback || []) {
+      if (!result[p.user_id]) result[p.user_id] = { feed: 0, story: 0 };
+      result[p.user_id].feed += 1;
+    }
+    return result;
+  }
+
+  for (const p of data || []) {
+    if (!result[p.user_id]) result[p.user_id] = { feed: 0, story: 0 };
+    if (p.post_type === 'story') result[p.user_id].story += 1;
+    else result[p.user_id].feed += 1;
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -211,16 +262,22 @@ async function getInfluencersRanking(year, month, sortBy = 'reach') {
 
   if (usersError) throw new Error(usersError.message);
 
+  // Count posts by type (feed vs story) per influencer for this range.
+  const countsByUser = await countPostTypesByUser(start, end);
+
   const ranking = [];
 
   for (const influencer of influencers) {
     const data = await fetchAggregatedForRange(influencer.id, start, end);
+    const counts = countsByUser[influencer.id] || { feed: 0, story: 0 };
     ranking.push({
       user: {
         id: influencer.id,
         username: influencer.username,
         display_name: influencer.display_name,
       },
+      feed_count: counts.feed,
+      story_count: counts.story,
       metrics: data,
     });
   }

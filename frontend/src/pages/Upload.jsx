@@ -25,6 +25,7 @@ export default function Upload() {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(TODAY);
   const [platform, setPlatform] = useState('instagram');
+  const [postType, setPostType] = useState('feed');
 
   // Prints for this single post
   const [prints, setPrints] = useState([]); // [{ localId, file, preview }]
@@ -97,6 +98,7 @@ export default function Upload() {
       formData.append('title', title.trim());
       formData.append('published_at', date);
       formData.append('platform', platform);
+      formData.append('post_type', postType);
 
       const res = await api.post('/posts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -174,6 +176,20 @@ export default function Upload() {
                   {PLATFORMS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="postType">Tipo de publicação</label>
+                <select
+                  id="postType"
+                  className="form-control"
+                  value={postType}
+                  onChange={(e) => setPostType(e.target.value)}
+                  disabled={uploading}
+                >
+                  <option value="feed">Post (Feed)</option>
+                  <option value="story">Story</option>
                 </select>
               </div>
 

@@ -131,6 +131,7 @@ router.post(
       }
 
       const { title, published_at, platform } = req.body;
+      const post_type = req.body.post_type === 'story' ? 'story' : 'feed';
 
       // Validate required fields
       if (!title || !title.trim()) {
@@ -161,14 +162,26 @@ router.post(
       const month = publishedDate.getUTCMonth() + 1;
 
       // 1. Create post record (without image_url yet)
-      const { error: insertError } = await supabase.from('posts').insert({
+      const postRecord = {
         id: postId,
         user_id: userId,
         title: title.trim(),
         platform,
+        post_type,
         published_at,
         confirmed_by_user: false,
-      });
+      };
+
+      let { error: insertError } = await supabase.from('posts').insert(postRecord);
+
+      // Graceful fallback: if the post_type column doesn't exist yet, retry
+      // without it. Fix: run migration 003_post_type.sql.
+      if (insertError && /post_type/i.test(insertError.message)) {
+        console.warn('post_type column missing — retrying insert without it.');
+        const { post_type: _dropped, ...withoutType } = postRecord;
+        const retry = await supabase.from('posts').insert(withoutType);
+        insertError = retry.error;
+      }
 
       if (insertError) {
         console.error('Post insert error:', insertError.message);

@@ -76,6 +76,8 @@ export function flattenRanking(ranking) {
     username: r.user?.username,
     display_name: r.user?.display_name,
     posts_count: r.metrics?.post_count ?? 0,
+    feed_count: r.feed_count ?? 0,
+    story_count: r.story_count ?? 0,
     reach: r.metrics?.reach ?? 0,
     likes: r.metrics?.likes ?? 0,
     impressions: r.metrics?.impressions ?? 0,

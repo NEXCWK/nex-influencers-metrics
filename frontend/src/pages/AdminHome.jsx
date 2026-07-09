@@ -154,7 +154,8 @@ export default function AdminHome() {
                 <tr>
                   <th style={{ width: 48 }}>#</th>
                   <th>Nome</th>
-                  <th>Posts</th>
+                  <th>Feed</th>
+                  <th>Stories</th>
                   <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('reach')}>
                     Alcance<SortIcon col="reach" />
                   </th>
@@ -167,7 +168,7 @@ export default function AdminHome() {
               <tbody>
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: 0, border: 0 }}>
+                    <td colSpan={7} style={{ padding: 0, border: 0 }}>
                       <div className={styles.emptyState}>
                         <p className={styles.emptyStateTitle}>
                           Sem dados em {MONTHS[month - 1]}/{year}
@@ -203,7 +204,8 @@ export default function AdminHome() {
                             {inf.display_name || inf.username}
                           </span>
                         </td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.posts_count ?? 0}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.feed_count ?? 0}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.story_count ?? 0}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.reach)}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.likes)}</td>
                         <td>
