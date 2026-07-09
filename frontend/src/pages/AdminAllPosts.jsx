@@ -103,6 +103,10 @@ function EditMetricsModal({ post, onSave, onClose }) {
     FIELDS.forEach(({ key }) => { init[key] = post[key] !== undefined ? String(post[key]) : ''; });
     return init;
   });
+  const [date, setDate] = useState(() => {
+    const d = post.published_at || post.published_date || '';
+    return typeof d === 'string' ? d.slice(0, 10) : '';
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -114,8 +118,9 @@ function EditMetricsModal({ post, onSave, onClose }) {
       FIELDS.forEach(({ key }) => {
         if (values[key] !== '') payload[key] = parseFloat(values[key]);
       });
+      if (date) payload.published_at = date;
       await api.patch(`/admin/posts/${post.id}`, payload);
-      onSave({ ...post, ...payload });
+      onSave();
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao salvar metricas.');
     } finally {
@@ -135,6 +140,15 @@ function EditMetricsModal({ post, onSave, onClose }) {
           {post.title || 'Post sem titulo'}
         </p>
         {error && <div className="alert alert-error">{error}</div>}
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">Data de publicação (define o mês no dashboard)</label>
+          <input
+            type="date"
+            className="form-control"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
         <div className={styles.editGrid}>
           {FIELDS.map(({ key, label }) => (
             <div key={key} className="form-group" style={{ marginBottom: 12 }}>
@@ -260,9 +274,11 @@ export default function AdminAllPosts() {
     }
   };
 
-  const handleEditSaved = (updatedPost) => {
-    setPosts((prev) => prev.map((p) => p.id === updatedPost.id ? updatedPost : p));
+  const handleEditSaved = () => {
     setEditPost(null);
+    // Refetch: editing the date may move the post to another month, so it can
+    // leave the current filter — a simple map wouldn't reflect that.
+    fetchPosts();
   };
 
   const METRIC_KEYS = [

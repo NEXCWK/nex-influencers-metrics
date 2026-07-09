@@ -449,36 +449,74 @@ router.patch('/posts/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    // Build update payload from allowed fields
+    // --- Post-level fields: date/month, title and type ---
+    // Editing published_at moves the post between months on the dashboards,
+    // no need to delete and re-upload.
+    const postUpdates = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'published_at')) {
+      const d = req.body.published_at;
+      if (d != null && d !== '') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          return res.status(400).json({ error: 'A data deve estar no formato AAAA-MM-DD' });
+        }
+        postUpdates.published_at = d;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'post_type')) {
+      postUpdates.post_type = req.body.post_type === 'story' ? 'story' : 'feed';
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'title') && String(req.body.title).trim()) {
+      postUpdates.title = String(req.body.title).trim();
+    }
+
+    if (Object.keys(postUpdates).length > 0) {
+      let { error: postErr } = await supabase.from('posts').update(postUpdates).eq('id', id);
+      // Graceful fallback if post_type column doesn't exist yet.
+      if (postErr && /post_type/i.test(postErr.message) && postUpdates.post_type) {
+        const { post_type: _dropped, ...rest } = postUpdates;
+        postErr = Object.keys(rest).length > 0
+          ? (await supabase.from('posts').update(rest).eq('id', id)).error
+          : null;
+      }
+      if (postErr) {
+        console.error('Admin post update error:', postErr.message);
+        return res.status(500).json({ error: 'Falha ao atualizar os dados do post' });
+      }
+    }
+
+    // --- Metric fields (only touch metrics when at least one was sent, so
+    // editing just the date doesn't create an empty manually-edited row) ---
     const allowedFields = [
       'reach', 'impressions', 'likes', 'comments', 'shares',
       'saves', 'plays', 'engagement_rate', 'profile_visits', 'link_clicks',
     ];
 
-    const updates = { manually_edited: true };
+    const metricUpdates = {};
     for (const field of allowedFields) {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) {
-        updates[field] = req.body[field] != null ? Number(req.body[field]) : null;
+        metricUpdates[field] = req.body[field] != null ? Number(req.body[field]) : null;
       }
     }
 
-    const { error: upsertError } = await supabase
-      .from('metrics')
-      .upsert({ post_id: id, ...updates }, { onConflict: 'post_id' });
+    if (Object.keys(metricUpdates).length > 0) {
+      const { error: upsertError } = await supabase
+        .from('metrics')
+        .upsert({ post_id: id, manually_edited: true, ...metricUpdates }, { onConflict: 'post_id' });
 
-    if (upsertError) {
-      console.error('Admin metrics upsert error:', upsertError.message);
-      return res.status(500).json({ error: 'Failed to update metrics' });
+      if (upsertError) {
+        console.error('Admin metrics upsert error:', upsertError.message);
+        return res.status(500).json({ error: 'Failed to update metrics' });
+      }
     }
 
-    // Return updated metrics
+    // Return updated metrics + the applied post-level changes
     const { data: updatedMetrics } = await supabase
       .from('metrics')
       .select('*')
       .eq('post_id', id)
-      .single();
+      .maybeSingle();
 
-    return res.json({ metrics: updatedMetrics });
+    return res.json({ metrics: updatedMetrics, post: postUpdates });
   } catch (err) {
     next(err);
   }
