@@ -33,7 +33,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('pt-BR');
 }
 
-export default function PostList({ posts = [], onPostClick }) {
+export default function PostList({ posts = [], onPostClick, onEdit }) {
   if (!posts.length) {
     return (
       <div style={{
@@ -61,6 +61,7 @@ export default function PostList({ posts = [], onPostClick }) {
             <th>Alcance</th>
             <th>Curtidas</th>
             <th>Engajamento</th>
+            {onEdit && <th>Ações</th>}
           </tr>
         </thead>
         <tbody>
@@ -104,6 +105,16 @@ export default function PostList({ posts = [], onPostClick }) {
                   ? `${parseFloat(post.engagement_rate).toFixed(2)}%`
                   : '—'}
               </td>
+              {onEdit && (
+                <td>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={(e) => { e.stopPropagation(); onEdit(post); }}
+                  >
+                    Editar
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

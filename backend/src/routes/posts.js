@@ -440,6 +440,98 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// PATCH /posts/:id — owner edits their own post's date/month, title and metrics
+// (without deleting and re-uploading). Changing published_at moves the post to
+// another month on the dashboards.
+// ---------------------------------------------------------------------------
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { data: post, error: fetchError } = await supabase
+      .from('posts')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Patch post fetch error:', fetchError.message);
+      return res.status(500).json({ error: 'Failed to fetch post' });
+    }
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    if (post.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // --- Post-level fields: date/month, title, type ---
+    const postUpdates = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'published_at')) {
+      const d = req.body.published_at;
+      if (d != null && d !== '') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          return res.status(400).json({ error: 'A data deve estar no formato AAAA-MM-DD' });
+        }
+        postUpdates.published_at = d;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'post_type')) {
+      postUpdates.post_type = req.body.post_type === 'story' ? 'story' : 'feed';
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'title') && String(req.body.title).trim()) {
+      postUpdates.title = String(req.body.title).trim();
+    }
+
+    if (Object.keys(postUpdates).length > 0) {
+      let { error: postErr } = await supabase.from('posts').update(postUpdates).eq('id', id);
+      if (postErr && /post_type/i.test(postErr.message) && postUpdates.post_type) {
+        const { post_type: _dropped, ...rest } = postUpdates;
+        postErr = Object.keys(rest).length > 0
+          ? (await supabase.from('posts').update(rest).eq('id', id)).error
+          : null;
+      }
+      if (postErr) {
+        console.error('Patch post update error:', postErr.message);
+        return res.status(500).json({ error: 'Falha ao atualizar os dados do post' });
+      }
+    }
+
+    // --- Metric fields (only touch metrics when at least one was sent) ---
+    const allowedFields = [
+      'reach', 'impressions', 'likes', 'comments', 'shares',
+      'saves', 'plays', 'engagement_rate', 'profile_visits', 'link_clicks',
+    ];
+    const metricUpdates = {};
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        metricUpdates[field] = req.body[field] != null ? Number(req.body[field]) : null;
+      }
+    }
+
+    if (Object.keys(metricUpdates).length > 0) {
+      const { error: upsertError } = await supabase
+        .from('metrics')
+        .upsert({ post_id: id, manually_edited: true, ...metricUpdates }, { onConflict: 'post_id' });
+      if (upsertError) {
+        console.error('Patch metrics upsert error:', upsertError.message);
+        return res.status(500).json({ error: 'Failed to update metrics' });
+      }
+    }
+
+    const { data: updatedMetrics } = await supabase
+      .from('metrics')
+      .select('*')
+      .eq('post_id', id)
+      .maybeSingle();
+
+    return res.json({ metrics: updatedMetrics, post: postUpdates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Multer error handler (file too large / wrong type)
 // ---------------------------------------------------------------------------
 // eslint-disable-next-line no-unused-vars

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import PostList from '../components/PostList.jsx';
+import EditPostModal from '../components/EditPostModal.jsx';
 import { IconDocument, IconSignal, IconMessageCircle, IconEye } from '../components/Icons.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editPost, setEditPost] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -201,9 +203,18 @@ export default function Dashboard() {
         {loading ? (
           <div className="skeleton" style={{ height: 200, borderRadius: 8 }} />
         ) : (
-          <PostList posts={posts} />
+          <PostList posts={posts} onEdit={setEditPost} />
         )}
       </div>
+
+      {editPost && (
+        <EditPostModal
+          post={editPost}
+          endpoint={`/posts/${editPost.id}`}
+          onSaved={() => { setEditPost(null); fetchData(); }}
+          onClose={() => setEditPost(null)}
+        />
+      )}
     </div>
   );
 }
