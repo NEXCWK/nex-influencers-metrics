@@ -303,6 +303,38 @@ export default function AdminAllPosts() {
     }
   };
 
+  // Re-run AI extraction for EVERY post on the platform (all months/pages),
+  // applying the current extraction prompt. Skips manually-edited posts on the
+  // backend. Long-running: one AI call per post, so keep the tab open.
+  const handleReprocessAll = async () => {
+    let ids = [];
+    try {
+      const res = await api.get('/admin/posts/all-ids');
+      ids = res.data?.ids || [];
+    } catch {
+      alert('Erro ao listar os posts para reprocessar.');
+      return;
+    }
+    if (ids.length === 0) {
+      alert('Nenhum post encontrado.');
+      return;
+    }
+    if (!window.confirm(`Reprocessar TODOS os ${ids.length} posts da plataforma? A IA roda uma vez por post, então pode levar vários minutos. Mantenha esta aba aberta.`)) {
+      return;
+    }
+    setBulkProgress({ done: 0, total: ids.length });
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        await api.post(`/admin/posts/${ids[i]}/reprocess`, {}, { timeout: 120000 });
+      } catch {
+        // continua para os próximos mesmo se um falhar
+      }
+      setBulkProgress({ done: i + 1, total: ids.length });
+    }
+    setBulkProgress(null);
+    await fetchPosts();
+  };
+
   // Re-run AI extraction for every post on the current page that has no metrics.
   const handleReprocessMissing = async () => {
     const targets = posts.filter(isMissingMetrics);
@@ -359,6 +391,16 @@ export default function AdminAllPosts() {
             {bulkProgress
               ? `Reprocessando ${bulkProgress.done}/${bulkProgress.total}...`
               : 'Reprocessar faltantes'}
+          </button>
+          <button
+            className="btn btn-secondary"
+            onClick={handleReprocessAll}
+            disabled={!!bulkProgress || loading}
+            title="Re-executa a IA sobre os prints de TODOS os posts da plataforma"
+          >
+            {bulkProgress
+              ? `Reprocessando ${bulkProgress.done}/${bulkProgress.total}...`
+              : 'Reprocessar TODOS'}
           </button>
           <button className="btn btn-secondary" onClick={handleExportCSV}>
             <IconDownload size={14} /> Exportar {total > 0 ? `${total} posts` : 'CSV'}

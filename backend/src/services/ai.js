@@ -59,6 +59,25 @@ o restante em "extra":
 - Um story normalmente NÃO possui "Visualizações"/"Impressões" nem taxa de
   engajamento; nesses casos deixe esses campos como null em vez de inventar.
 
+PAINEL "INTERAÇÕES" DO STORY (MUITO IMPORTANTE — leia com atenção):
+Os prints de story frequentemente têm um painel de detalhamento (um círculo/
+donut colorido com o número total de "Interações" no centro, ex: "Interações 20",
+seguido de uma LISTA de valores logo abaixo). Essa lista costuma conter, uma por
+linha, um rótulo à esquerda e um NÚMERO à direita. Você DEVE ler cada linha dessa
+lista e mapear:
+- "Curtidas" → likes   (ex.: a linha "Curtidas ....... 17" significa likes = 17)
+- "Respostas" → comments
+- "Compartilhamentos" → shares
+- "Cliques no link" / "Toques no link" → link_clicks
+- "Visitas ao perfil" → profile_visits
+- "Interações" (o número grande no centro do círculo) → extra.interacoes
+- "Seguidores %" / "Não seguidores %" (divisão do alcance) → extra
+  (ex.: {"seguidores_pct": 95.0, "nao_seguidores_pct": 5.0})
+NÃO confunda o número central "Interações" (total) com "Curtidas": Curtidas é uma
+linha específica da lista, quase sempre com valor menor que o total de interações.
+Percorra TODA a lista, inclusive linhas separadas por divisórias, e não pare no
+primeiro item.
+
 REGRA GERAL: nunca deixe de extrair uma métrica que esteja visível. Se ela não se
 encaixar perfeitamente em nenhum campo padrão, ela DEVE aparecer em "extra". Só
 retorne null para uma métrica que realmente não aparece em nenhum print.

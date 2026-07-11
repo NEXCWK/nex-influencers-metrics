@@ -150,6 +150,8 @@ export default function AdminInfluencer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPost, setSelectedPost] = useState(null);
+  const [reprocessingId, setReprocessingId] = useState(null);
+  const [bulkProgress, setBulkProgress] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -181,6 +183,38 @@ export default function AdminInfluencer() {
     } catch {
       alert('Erro ao excluir post.');
     }
+  };
+
+  const handleReprocess = async (post) => {
+    setReprocessingId(post.id);
+    try {
+      const res = await api.post(`/admin/posts/${post.id}/reprocess`, {}, { timeout: 120000 });
+      if (res.data?.skipped) {
+        alert('As métricas deste post foram editadas manualmente e não foram sobrescritas.');
+      }
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao reprocessar as métricas deste post.');
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
+  // Reprocessa todos os posts deste influenciador no mês exibido.
+  const handleReprocessMonth = async () => {
+    if (posts.length === 0) return;
+    if (!window.confirm(`Reprocessar os ${posts.length} post(s) deste mês? A IA será executada novamente sobre os prints.`)) return;
+    setBulkProgress({ done: 0, total: posts.length });
+    for (let i = 0; i < posts.length; i++) {
+      try {
+        await api.post(`/admin/posts/${posts[i].id}/reprocess`, {}, { timeout: 120000 });
+      } catch {
+        // continua mesmo se um falhar
+      }
+      setBulkProgress({ done: i + 1, total: posts.length });
+    }
+    setBulkProgress(null);
+    await fetchData();
   };
 
   const yearOptions = [];
@@ -295,7 +329,19 @@ export default function AdminInfluencer() {
       )}
 
       <div style={{ marginTop: 32 }}>
-        <h2 className="section-title">Posts do Periodo</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h2 className="section-title" style={{ margin: 0 }}>Posts do Periodo</h2>
+          {posts.length > 0 && (
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleReprocessMonth}
+              disabled={!!bulkProgress || !!reprocessingId}
+              title="Re-executa a IA sobre os prints de todos os posts deste mês"
+            >
+              {bulkProgress ? `Reprocessando ${bulkProgress.done}/${bulkProgress.total}...` : 'Reprocessar métricas do mês'}
+            </button>
+          )}
+        </div>
         {loading ? (
           <div className="skeleton" style={{ height: 200, borderRadius: 16 }} />
         ) : posts.length === 0 ? (
@@ -307,7 +353,14 @@ export default function AdminInfluencer() {
             Nenhum post encontrado para o periodo selecionado.
           </div>
         ) : (
-          <AdminPostList posts={posts} onView={setSelectedPost} onDelete={handleDeletePost} />
+          <AdminPostList
+            posts={posts}
+            onView={setSelectedPost}
+            onDelete={handleDeletePost}
+            onReprocess={handleReprocess}
+            reprocessingId={reprocessingId}
+            bulkBusy={!!bulkProgress}
+          />
         )}
       </div>
 
@@ -318,7 +371,7 @@ export default function AdminInfluencer() {
   );
 }
 
-function AdminPostList({ posts, onView, onDelete }) {
+function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, bulkBusy }) {
   const formatNum = (v) => {
     if (v === null || v === undefined) return '—';
     const n = parseFloat(v);
@@ -373,6 +426,16 @@ function AdminPostList({ posts, onView, onDelete }) {
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => onView(post)}>Ver</button>
+                  {onReprocess && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => onReprocess(post)}
+                      disabled={reprocessingId === post.id || bulkBusy}
+                      title="Re-executar a extração de métricas por IA sobre os prints deste post"
+                    >
+                      {reprocessingId === post.id ? 'Extraindo...' : 'Re-extrair'}
+                    </button>
+                  )}
                   <button className="btn btn-danger-outline btn-sm" onClick={() => onDelete(post)}>Excluir</button>
                 </div>
               </td>

@@ -382,6 +382,26 @@ router.post('/posts/:id/reprocess', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /admin/posts/all-ids — every post id on the platform (for bulk reprocess)
+// ---------------------------------------------------------------------------
+router.get('/posts/all-ids', async (_req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id')
+      .order('published_at', { ascending: false });
+
+    if (error) {
+      console.error('Admin all-ids error:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch post ids' });
+    }
+    return res.json({ ids: (data || []).map((p) => p.id) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // DELETE /admin/posts/:id — delete any post, metrics, and storage image
 // ---------------------------------------------------------------------------
 router.delete('/posts/:id', async (req, res, next) => {
