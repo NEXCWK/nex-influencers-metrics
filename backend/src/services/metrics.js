@@ -306,6 +306,7 @@ async function getAllPostsFiltered({
   year,
   month,
   platform,
+  postType,
   startDate,
   endDate,
   page = 1,
@@ -317,7 +318,7 @@ async function getAllPostsFiltered({
   let query = supabase
     .from('posts')
     .select(
-      `id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
+      `id, title, platform, post_type, possible_duplicate, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
        user:users!posts_user_id_fkey(id, username, display_name),
        metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited)`,
       { count: 'exact' }
@@ -327,6 +328,7 @@ async function getAllPostsFiltered({
 
   if (influencerId) query = query.eq('user_id', influencerId);
   if (platform) query = query.eq('platform', platform);
+  if (postType) query = query.eq('post_type', postType);
 
   if (year && month) {
     const { start, end } = monthRange(year, month);
@@ -362,7 +364,7 @@ async function exportPostsCSV({
   let query = supabase
     .from('posts')
     .select(
-      `id, title, platform, published_at, uploaded_at, confirmed_by_user,
+      `id, title, platform, post_type, published_at, uploaded_at, confirmed_by_user,
        user:users!posts_user_id_fkey(id, username, display_name),
        metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited)`
     )

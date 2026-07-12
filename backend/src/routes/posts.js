@@ -81,7 +81,7 @@ router.get('/', async (req, res, next) => {
     let query = supabase
       .from('posts')
       .select(
-        `id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
+        `id, title, platform, post_type, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
          metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, extra_metrics, created_at)`
       )
       .eq('user_id', req.user.id)
@@ -283,7 +283,7 @@ router.post('/:id/confirm', async (req, res, next) => {
     // Verify post exists and belongs to this user
     const { data: post, error: fetchError } = await supabase
       .from('posts')
-      .select('id, user_id')
+      .select('id, user_id, platform')
       .eq('id', id)
       .maybeSingle();
 
@@ -313,7 +313,36 @@ router.post('/:id/confirm', async (req, res, next) => {
       link_clicks,
       manually_edited,
       extra_metrics,
+      acknowledge_duplicate,
     } = req.body;
+
+    // --- Proteção contra post duplicado ---
+    // Métrica-chave: visualizações (impressions); para story, cai no alcance.
+    // Compara com outros posts do MESMO influenciador na MESMA plataforma.
+    const keyValue = (impressions ?? reach) ?? null;
+    if (keyValue != null && acknowledge_duplicate !== true) {
+      const { data: siblings } = await supabase
+        .from('posts')
+        .select('id, title, published_at, metrics(reach, impressions)')
+        .eq('user_id', post.user_id)
+        .eq('platform', post.platform)
+        .neq('id', id);
+
+      const dup = (siblings || []).find((s) => {
+        const m = Array.isArray(s.metrics) ? s.metrics[0] : s.metrics;
+        if (!m) return false;
+        const sVal = (m.impressions ?? m.reach) ?? null;
+        return sVal != null && Number(sVal) === Number(keyValue);
+      });
+
+      if (dup) {
+        return res.status(409).json({
+          duplicate: true,
+          key_value: keyValue,
+          existing: { title: dup.title || null, published_at: dup.published_at || null },
+        });
+      }
+    }
 
     // Upsert metrics (insert or update if already exists for this post)
     const metricsPayload = {
@@ -352,11 +381,24 @@ router.post('/:id/confirm', async (req, res, next) => {
       return res.status(500).json({ error: 'Failed to save metrics' });
     }
 
-    // Mark post as confirmed
-    const { error: updateError } = await supabase
+    // Mark post as confirmed (and flag as possible duplicate if the user
+    // acknowledged the warning and uploaded anyway).
+    const confirmPayload = { confirmed_by_user: true };
+    if (acknowledge_duplicate === true) confirmPayload.possible_duplicate = true;
+
+    let { error: updateError } = await supabase
       .from('posts')
-      .update({ confirmed_by_user: true })
+      .update(confirmPayload)
       .eq('id', id);
+
+    // Graceful fallback if possible_duplicate column doesn't exist yet.
+    if (updateError && /possible_duplicate/i.test(updateError.message)) {
+      console.warn('possible_duplicate column missing — confirming without the flag.');
+      updateError = (await supabase
+        .from('posts')
+        .update({ confirmed_by_user: true })
+        .eq('id', id)).error;
+    }
 
     if (updateError) {
       console.error('Post confirm update error:', updateError.message);

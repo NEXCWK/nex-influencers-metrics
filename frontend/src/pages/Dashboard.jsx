@@ -3,7 +3,7 @@ import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import PostList from '../components/PostList.jsx';
 import EditPostModal from '../components/EditPostModal.jsx';
-import { IconDocument, IconSignal, IconMessageCircle, IconEye } from '../components/Icons.jsx';
+import { IconDocument, IconSignal, IconEye } from '../components/Icons.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
@@ -138,13 +138,6 @@ export default function Dashboard() {
               previousValue={prev.total_reach}
             />
             <MetricCard
-              label="Engajamento Médio"
-              value={cur.avg_engagement_rate}
-              unit="%"
-              icon={<IconMessageCircle size={16} />}
-              previousValue={prev.avg_engagement_rate}
-            />
-            <MetricCard
               label="Visualizações Totais"
               value={cur.total_impressions}
               icon={<IconEye size={16} />}
@@ -178,10 +171,10 @@ export default function Dashboard() {
             <NexLineChart
               data={history}
               xKey="month"
-              title="Evolução — Alcance e Engajamento"
+              title="Evolução — Alcance e Visualizações"
               lines={[
                 { key: 'reach', name: 'Alcance', color: '#000000' },
-                { key: 'engagement_rate', name: 'Engajamento (%)', color: '#FFD400' },
+                { key: 'impressions', name: 'Visualizações', color: '#7c3aed' },
               ]}
             />
           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { FormatBadge, MetricCell } from './PostBadges.jsx';
 import styles from './PostList.module.css';
 
 const PLATFORM_LABELS = {
@@ -57,10 +58,10 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
           <tr>
             <th>Post</th>
             <th>Plataforma</th>
+            <th>Formato</th>
             <th>Data</th>
             <th>Alcance</th>
             <th>Curtidas</th>
-            <th>Engajamento</th>
             {onEdit && <th>Ações</th>}
           </tr>
         </thead>
@@ -95,16 +96,12 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
               <td>
                 <PlatformBadge platform={post.platform} />
               </td>
+              <td><FormatBadge type={post.post_type} /></td>
               <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
                 {formatDate(post.published_date || post.created_at)}
               </td>
-              <td>{formatNum(post.reach)}</td>
-              <td>{formatNum(post.likes)}</td>
-              <td>
-                {post.engagement_rate !== null && post.engagement_rate !== undefined
-                  ? `${parseFloat(post.engagement_rate).toFixed(2)}%`
-                  : '—'}
-              </td>
+              <td><MetricCell value={post.reach} format={formatNum} /></td>
+              <td><MetricCell value={post.likes} format={formatNum} /></td>
               {onEdit && (
                 <td>
                   <button

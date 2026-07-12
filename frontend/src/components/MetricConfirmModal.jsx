@@ -112,7 +112,29 @@ export default function MetricConfirmModal({
         payload.extra_metrics = extraMetrics;
       }
 
-      await api.post(`/posts/${postId}/confirm`, payload);
+      try {
+        await api.post(`/posts/${postId}/confirm`, payload);
+      } catch (err) {
+        // Backend flagged a possible duplicate (same influencer + plataforma +
+        // mesmo número de visualizações/alcance). Ask before proceeding.
+        if (err.response?.status === 409 && err.response.data?.duplicate) {
+          const ex = err.response.data.existing || {};
+          const quando = ex.published_at ? ` (de ${ex.published_at})` : '';
+          const proceed = window.confirm(
+            `Já existe um post seu com o mesmo número de visualizações/alcance` +
+            `${ex.title ? `: "${ex.title}"${quando}` : quando}.\n\n` +
+            `Isso pode ser um post duplicado. Deseja enviar mesmo assim?`
+          );
+          if (!proceed) {
+            setLoading(false);
+            return;
+          }
+          // Reenvia confirmando o envio; o post será marcado como possível duplicado.
+          await api.post(`/posts/${postId}/confirm`, { ...payload, acknowledge_duplicate: true });
+        } else {
+          throw err;
+        }
+      }
       onConfirm(payload);
     } catch (err) {
       setError(

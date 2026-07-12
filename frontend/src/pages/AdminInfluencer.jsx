@@ -7,8 +7,9 @@ import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
 import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
+import { FormatBadge, DuplicateBadge, MetricCell } from '../components/PostBadges.jsx';
 import {
-  IconDocument, IconSignal, IconMessageCircle, IconEye,
+  IconDocument, IconSignal, IconEye,
   IconCamera, IconChevronLeft, IconChevronRight,
 } from '../components/Icons.jsx';
 import styles from './AdminInfluencer.module.css';
@@ -92,13 +93,13 @@ function PostImageModal({ post, onClose }) {
         <div className={styles.postDetailGrid}>
           {[
             ['Plataforma', post.platform],
+            ['Formato', post.post_type === 'story' ? 'Story' : 'Feed'],
             ['Data', post.published_date || post.created_at],
             ['Alcance', post.reach],
             ['Curtidas', post.likes],
             ['Comentarios', post.comments],
             ['Compartilhamentos', post.shares],
             ['Visualizacoes', post.impressions],
-            ['Engajamento', post.engagement_rate ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'],
             ['Plays', post.plays],
             ['Salvamentos', post.saves],
             ['Visitas ao Perfil', post.profile_visits],
@@ -290,7 +291,6 @@ export default function AdminInfluencer() {
           <>
             <MetricCard label="Total de Posts" value={cur.total_posts} icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
             <MetricCard label="Alcance Total" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
-            <MetricCard label="Engajamento Medio" value={cur.avg_engagement_rate} unit="%" icon={<IconMessageCircle size={16} />} previousValue={prev.avg_engagement_rate} />
             <MetricCard label="Visualizacoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
           </>
         )}
@@ -309,10 +309,10 @@ export default function AdminInfluencer() {
             <NexLineChart
               data={history}
               xKey="month"
-              title="Evolucao — Alcance e Engajamento"
+              title="Evolucao — Alcance e Visualizacoes"
               lines={[
                 { key: 'reach', name: 'Alcance', color: '#000000' },
-                { key: 'engagement_rate', name: 'Engajamento (%)', color: '#FFD400' },
+                { key: 'impressions', name: 'Visualizacoes', color: '#7c3aed' },
               ]}
             />
           </div>
@@ -394,10 +394,10 @@ function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, b
           <tr>
             <th>Post</th>
             <th>Plataforma</th>
+            <th>Formato</th>
             <th>Data</th>
             <th>Alcance</th>
             <th>Curtidas</th>
-            <th>Engajamento</th>
             <th>Acoes</th>
           </tr>
         </thead>
@@ -413,16 +413,17 @@ function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, b
                       <IconCamera size={16} />
                     </div>
                   )}
-                  <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)' }}>{post.title || 'Sem titulo'}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)' }}>{post.title || 'Sem titulo'}</span>
+                    {post.possible_duplicate && <DuplicateBadge />}
+                  </div>
                 </div>
               </td>
               <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
+              <td><FormatBadge type={post.post_type} /></td>
               <td style={{ color: 'var(--ink-muted)', fontSize: 13 }}>{formatDate(post.published_date || post.created_at)}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.reach)}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.likes)}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {post.engagement_rate !== null && post.engagement_rate !== undefined ? `${parseFloat(post.engagement_rate).toFixed(2)}%` : '—'}
-              </td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.reach} format={formatNum} /></td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.likes} format={formatNum} /></td>
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-secondary btn-sm" onClick={() => onView(post)}>Ver</button>

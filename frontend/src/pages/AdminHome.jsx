@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import { flattenRanking } from '../utils/normalize.js';
-import { IconUsers, IconDocument, IconSignal, IconMessageCircle } from '../components/Icons.jsx';
+import { IconUsers, IconDocument, IconSignal, IconEye } from '../components/Icons.jsx';
 import styles from './AdminHome.module.css';
 
 const MONTHS = [
@@ -87,8 +87,6 @@ export default function AdminHome() {
     return sortDir === 'asc' ? valA - valB : valB - valA;
   });
 
-  const maxEngagement = Math.max(...sorted.map((inf) => parseFloat(inf.engagement_rate) || 0), 0.001);
-
   const SortIcon = ({ col }) => {
     if (sortBy !== col) return <span style={{ color: '#ccc', fontSize: 11 }}> ⇅</span>;
     return <span style={{ color: 'var(--accent)', fontSize: 11 }}> {sortDir === 'asc' ? '▲' : '▼'}</span>;
@@ -138,7 +136,7 @@ export default function AdminHome() {
             <MetricCard label="Influenciadores Ativos" value={overview?.active_influencers ?? 0} icon={<IconUsers size={16} />} />
             <MetricCard label="Total de Posts" value={overview?.total_posts ?? 0} icon={<IconDocument size={16} />} />
             <MetricCard label="Alcance Total" value={overview?.aggregate?.reach ?? 0} icon={<IconSignal size={16} />} />
-            <MetricCard label="Engajamento Medio" value={overview?.aggregate?.engagement_rate ?? 0} unit="%" icon={<IconMessageCircle size={16} />} />
+            <MetricCard label="Visualizacoes Totais" value={overview?.aggregate?.impressions ?? 0} icon={<IconEye size={16} />} />
           </>
         )}
       </div>
@@ -159,16 +157,15 @@ export default function AdminHome() {
                   <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('reach')}>
                     Alcance<SortIcon col="reach" />
                   </th>
-                  <th>Curtidas</th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('engagement_rate')}>
-                    Engajamento<SortIcon col="engagement_rate" />
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('likes')}>
+                    Curtidas<SortIcon col="likes" />
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: 0, border: 0 }}>
+                    <td colSpan={6} style={{ padding: 0, border: 0 }}>
                       <div className={styles.emptyState}>
                         <p className={styles.emptyStateTitle}>
                           Sem dados em {MONTHS[month - 1]}/{year}
@@ -184,8 +181,6 @@ export default function AdminHome() {
                   </tr>
                 ) : (
                   sorted.map((inf, idx) => {
-                    const engRate = parseFloat(inf.engagement_rate) || 0;
-                    const barWidth = maxEngagement > 0 ? (engRate / maxEngagement) * 100 : 0;
                     return (
                       <tr
                         key={inf.id}
@@ -208,18 +203,6 @@ export default function AdminHome() {
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.story_count ?? 0}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.reach)}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.likes)}</td>
-                        <td>
-                          <div className={styles.sparkbarWrap}>
-                            <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 48, fontSize: 13 }}>
-                              {engRate > 0 ? `${engRate.toFixed(2)}%` : '—'}
-                            </span>
-                            {engRate > 0 && (
-                              <div className={styles.sparkbarTrack}>
-                                <div className={styles.sparkbarFill} style={{ width: `${barWidth}%` }} />
-                              </div>
-                            )}
-                          </div>
-                        </td>
                       </tr>
                     );
                   })

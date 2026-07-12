@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
 import { flattenPosts, flattenRanking } from '../utils/normalize.js';
 import { IconDownload, IconCamera, IconChevronLeft, IconChevronRight } from '../components/Icons.jsx';
+import { FormatBadge, DuplicateBadge, MetricCell } from '../components/PostBadges.jsx';
 import styles from './AdminAllPosts.module.css';
 
 const MONTHS = [
@@ -180,6 +181,7 @@ export default function AdminAllPosts() {
   const [monthFilter, setMonthFilter] = useState('');
   const [yearFilter, setYearFilter] = useState(String(CURRENT_YEAR));
   const [platformFilter, setPlatformFilter] = useState('');
+  const [formatFilter, setFormatFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -206,10 +208,11 @@ export default function AdminAllPosts() {
     if (monthFilter) p.month = monthFilter;
     if (yearFilter) p.year = yearFilter;
     if (platformFilter) p.platform = platformFilter;
+    if (formatFilter) p.postType = formatFilter;
     if (dateFrom) p.startDate = dateFrom;
     if (dateTo) p.endDate = dateTo;
     return p;
-  }, [influencerFilter, monthFilter, yearFilter, platformFilter, dateFrom, dateTo, page]);
+  }, [influencerFilter, monthFilter, yearFilter, platformFilter, formatFilter, dateFrom, dateTo, page]);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -241,6 +244,7 @@ export default function AdminAllPosts() {
     setMonthFilter('');
     setYearFilter(String(CURRENT_YEAR));
     setPlatformFilter('');
+    setFormatFilter('');
     setDateFrom('');
     setDateTo('');
     setPage(1);
@@ -425,6 +429,11 @@ export default function AdminAllPosts() {
         <select className="form-control" style={{ width: 'auto' }} value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
           {PLATFORMS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
+        <select className="form-control" style={{ width: 'auto' }} value={formatFilter} onChange={(e) => setFormatFilter(e.target.value)}>
+          <option value="">Formato</option>
+          <option value="feed">Feed</option>
+          <option value="story">Story</option>
+        </select>
         <input type="date" className="form-control" style={{ width: 'auto' }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         <input type="date" className="form-control" style={{ width: 'auto' }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         <button type="submit" className="btn btn-primary btn-sm">Filtrar</button>
@@ -455,10 +464,10 @@ export default function AdminAllPosts() {
                   <th>Post</th>
                   <th>Influenciador</th>
                   <th>Plataforma</th>
+                  <th>Formato</th>
                   <th>Data</th>
                   <th>Alcance</th>
                   <th>Curtidas</th>
-                  <th>Engajamento</th>
                   <th>Acoes</th>
                 </tr>
               </thead>
@@ -476,7 +485,6 @@ export default function AdminAllPosts() {
                     </td>
                   </tr>
                 ) : posts.map((post) => {
-                  const eng = post.engagement_rate != null ? parseFloat(post.engagement_rate) : null;
                   return (
                     <tr key={post.id}>
                       <td>
@@ -493,26 +501,18 @@ export default function AdminAllPosts() {
                               <IconCamera size={16} />
                             </div>
                           )}
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem titulo'}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem titulo'}</span>
+                            {post.possible_duplicate && <DuplicateBadge />}
+                          </div>
                         </div>
                       </td>
                       <td style={{ fontSize: 13 }}>{post.influencer_name || post.display_name || '—'}</td>
                       <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
+                      <td><FormatBadge type={post.post_type} /></td>
                       <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{formatDate(post.published_date || post.created_at)}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.reach)}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(post.likes)}</td>
-                      <td>
-                        <div className={styles.engagementCell}>
-                          <span className={styles.engagementValue}>
-                            {eng != null ? `${eng.toFixed(2)}%` : '—'}
-                          </span>
-                          {eng != null && eng > 0 && (
-                            <div className={styles.engagementBar}>
-                              <div className={styles.engagementFill} style={{ width: `${Math.min(eng * 5, 100)}%` }} />
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.reach} format={formatNum} /></td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.likes} format={formatNum} /></td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button className="btn btn-secondary btn-sm" onClick={() => setExpandedPost(post)}>Ver</button>
