@@ -315,30 +315,51 @@ async function getAllPostsFiltered({
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
-    .from('posts')
-    .select(
-      `id, title, platform, post_type, possible_duplicate, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
-       user:users!posts_user_id_fkey(id, username, display_name),
-       metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited)`,
-      { count: 'exact' }
-    )
-    .order('published_at', { ascending: false })
-    .range(from, to);
+  const metricsCols =
+    'metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited)';
 
-  if (influencerId) query = query.eq('user_id', influencerId);
-  if (platform) query = query.eq('platform', platform);
-  if (postType) query = query.eq('post_type', postType);
+  // Build the query for a given select string, re-applying all filters.
+  const build = (selectStr) => {
+    let q = supabase
+      .from('posts')
+      .select(selectStr, { count: 'exact' })
+      .order('published_at', { ascending: false })
+      .range(from, to);
 
-  if (year && month) {
-    const { start, end } = monthRange(year, month);
-    query = query.gte('published_at', start).lt('published_at', end);
-  } else {
-    if (startDate) query = query.gte('published_at', startDate);
-    if (endDate) query = query.lte('published_at', endDate);
+    if (influencerId) q = q.eq('user_id', influencerId);
+    if (platform) q = q.eq('platform', platform);
+    if (postType) q = q.eq('post_type', postType);
+
+    if (year && month) {
+      const { start, end } = monthRange(year, month);
+      q = q.gte('published_at', start).lt('published_at', end);
+    } else {
+      if (startDate) q = q.gte('published_at', startDate);
+      if (endDate) q = q.lte('published_at', endDate);
+    }
+    return q;
+  };
+
+  const idBase = 'id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response';
+  const userCol = 'user:users!posts_user_id_fkey(id, username, display_name)';
+  const fullSelect = `${idBase}, post_type, possible_duplicate, ${userCol}, ${metricsCols}`;
+  const noDupSelect = `${idBase}, post_type, ${userCol}, ${metricsCols}`;
+  const baseSelect = `${idBase}, ${userCol}, ${metricsCols}`;
+
+  let { data, error, count } = await build(fullSelect);
+
+  // Graceful fallback: if the possible_duplicate column doesn't exist yet
+  // (migration 004 não aplicada), retry keeping post_type; if post_type also
+  // is missing (migration 003), fall back to the base columns.
+  if (error && /possible_duplicate/i.test(error.message)) {
+    console.warn('possible_duplicate ausente — retry sem essa coluna.');
+    ({ data, error, count } = await build(noDupSelect));
+  }
+  if (error && /post_type/i.test(error.message)) {
+    console.warn('post_type ausente — usando select base.');
+    ({ data, error, count } = await build(baseSelect));
   }
 
-  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
 
   return {
