@@ -69,6 +69,10 @@ export default function AdminUsers() {
   const [actionLoading, setActionLoading] = useState({});
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState({ username: '', display_name: '', role: 'influencer' });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -89,6 +93,38 @@ export default function AdminUsers() {
 
   const setUserLoading = (id, value) => {
     setActionLoading((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const openCreate = () => {
+    setForm({ username: '', display_name: '', role: 'influencer' });
+    setCreateError('');
+    setShowCreate(true);
+  };
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setCreateError('');
+    try {
+      const res = await api.post('/admin/users', {
+        username: form.username.trim().toLowerCase(),
+        display_name: form.display_name.trim(),
+        role: form.role,
+      });
+      const pwd = res.data?.default_password || 'nex2026';
+      const u = res.data?.user;
+      setShowCreate(false);
+      alert(
+        `Usuário criado com sucesso!\n\n` +
+        `Login: ${u?.username}\n` +
+        `Senha padrão: ${pwd}\n\n` +
+        `No primeiro acesso ele será obrigado a definir uma nova senha.`
+      );
+      fetchUsers();
+    } catch (err) {
+      setCreateError(err.response?.data?.error || 'Erro ao criar o usuário.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleResetPassword = async (user) => {
@@ -136,9 +172,14 @@ export default function AdminUsers() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Usuarios</h1>
-        <button className="btn btn-secondary" onClick={fetchUsers}>
-          Atualizar
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-secondary" onClick={fetchUsers}>
+            Atualizar
+          </button>
+          <button className="btn btn-primary" onClick={openCreate}>
+            + Adicionar usuário
+          </button>
+        </div>
       </div>
 
       <div style={{
@@ -161,7 +202,7 @@ export default function AdminUsers() {
             Adicionar usuarios
           </p>
           <p style={{ fontSize: 13, color: '#7a5800', fontFamily: 'var(--font)', fontWeight: 400 }}>
-            Para adicionar novos usuarios e necessario rodar o seed no banco de dados.
+            Use o botão "Adicionar usuário". O novo usuário entra com a senha padrão <strong>nex2026</strong> e precisa defini-la no primeiro acesso.
           </p>
         </div>
       </div>
@@ -278,6 +319,68 @@ export default function AdminUsers() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
+          <div className="modal-card" style={{ maxWidth: 440 }}>
+            <div className="modal-header">
+              <h2 className="modal-title">Adicionar usuário</h2>
+              <button className="modal-close" onClick={() => setShowCreate(false)}>×</button>
+            </div>
+
+            {createError && <div className="alert alert-error">{createError}</div>}
+
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label className="form-label">Nome de usuário (login)</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="ex: jaque"
+                value={form.username}
+                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                autoFocus
+              />
+              <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 4 }}>
+                Apenas minúsculas, números, ponto, hífen ou underline — sem espaços.
+              </p>
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label className="form-label">Nome de exibição (opcional)</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="ex: Jaque"
+                value={form.display_name}
+                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 8 }}>
+              <label className="form-label">Perfil</label>
+              <select
+                className="form-control"
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                <option value="influencer">Influenciador</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            <p style={{ fontSize: 13, color: 'var(--ink-muted)', marginBottom: 16 }}>
+              A senha inicial será <strong>nex2026</strong>, com troca obrigatória no primeiro login.
+            </p>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !form.username.trim()}>
+                {creating ? 'Criando...' : 'Criar usuário'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

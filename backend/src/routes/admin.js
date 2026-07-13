@@ -600,6 +600,65 @@ router.get('/users', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /admin/users — create a new user with the default password
+// ---------------------------------------------------------------------------
+router.post('/users', async (req, res, next) => {
+  try {
+    const rawUsername = (req.body.username || '').trim().toLowerCase();
+    const displayName = (req.body.display_name || '').trim() || rawUsername;
+    const role = req.body.role === 'admin' ? 'admin' : 'influencer';
+
+    if (!rawUsername) {
+      return res.status(400).json({ error: 'O nome de usuário é obrigatório' });
+    }
+    if (!/^[a-z0-9._-]+$/.test(rawUsername)) {
+      return res.status(400).json({
+        error: 'Use apenas letras minúsculas, números, ponto, hífen ou underline (sem espaços)',
+      });
+    }
+
+    // Ensure the username is unique
+    const { data: existing, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', rawUsername)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Create user check error:', checkError.message);
+      return res.status(500).json({ error: 'Failed to verify username' });
+    }
+    if (existing) {
+      return res.status(409).json({ error: `Já existe um usuário "${rawUsername}"` });
+    }
+
+    const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, SALT_ROUNDS);
+
+    const { data: created, error: insertError } = await supabase
+      .from('users')
+      .insert({
+        username: rawUsername,
+        display_name: displayName,
+        password_hash: passwordHash,
+        role,
+        must_change_password: true,
+        is_active: true,
+      })
+      .select('id, username, display_name, role, is_active, last_login, created_at')
+      .single();
+
+    if (insertError) {
+      console.error('Create user insert error:', insertError.message);
+      return res.status(500).json({ error: 'Falha ao criar o usuário' });
+    }
+
+    return res.status(201).json({ user: created, default_password: DEFAULT_PASSWORD });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST /admin/users/:id/reset-password — reset to default password
 // ---------------------------------------------------------------------------
 router.post('/users/:id/reset-password', async (req, res, next) => {
