@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormatBadge, MetricCell } from './PostBadges.jsx';
+import { FormatBadge, MetricCell, PostLink } from './PostBadges.jsx';
 import styles from './PostList.module.css';
 
 const PLATFORM_LABELS = {
@@ -88,8 +88,9 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
                       </svg>
                     </div>
                   )}
-                  <span className={styles.postTitle}>
+                  <span className={styles.postTitle} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                     {post.title || 'Post sem título'}
+                    <PostLink url={post.post_url} />
                   </span>
                 </div>
               </td>

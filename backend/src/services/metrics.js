@@ -342,18 +342,22 @@ async function getAllPostsFiltered({
 
   const idBase = 'id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response';
   const userCol = 'user:users!posts_user_id_fkey(id, username, display_name)';
-  const fullSelect = `${idBase}, post_type, possible_duplicate, ${userCol}, ${metricsCols}`;
-  const noDupSelect = `${idBase}, post_type, ${userCol}, ${metricsCols}`;
+  const fullSelect = `${idBase}, post_type, post_url, possible_duplicate, ${userCol}, ${metricsCols}`;
+  const noDupSelect = `${idBase}, post_type, post_url, ${userCol}, ${metricsCols}`;
+  const noUrlSelect = `${idBase}, post_type, ${userCol}, ${metricsCols}`;
   const baseSelect = `${idBase}, ${userCol}, ${metricsCols}`;
 
   let { data, error, count } = await build(fullSelect);
 
-  // Graceful fallback: if the possible_duplicate column doesn't exist yet
-  // (migration 004 não aplicada), retry keeping post_type; if post_type also
-  // is missing (migration 003), fall back to the base columns.
+  // Graceful fallback chain for columns that may not exist yet, from newest
+  // migration to oldest: possible_duplicate (004), post_url (005), post_type (003).
   if (error && /possible_duplicate/i.test(error.message)) {
     console.warn('possible_duplicate ausente — retry sem essa coluna.');
     ({ data, error, count } = await build(noDupSelect));
+  }
+  if (error && /post_url/i.test(error.message)) {
+    console.warn('post_url ausente — retry sem essa coluna.');
+    ({ data, error, count } = await build(noUrlSelect));
   }
   if (error && /post_type/i.test(error.message)) {
     console.warn('post_type ausente — usando select base.');

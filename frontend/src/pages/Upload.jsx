@@ -26,6 +26,7 @@ export default function Upload() {
   const [date, setDate] = useState(TODAY);
   const [platform, setPlatform] = useState('instagram');
   const [postType, setPostType] = useState('feed');
+  const [postUrl, setPostUrl] = useState('');
 
   // Prints for this single post
   const [prints, setPrints] = useState([]); // [{ localId, file, preview }]
@@ -90,6 +91,10 @@ export default function Upload() {
       setUploadError('Informe um título para o post.');
       return;
     }
+    if (postUrl.trim() && !/^https?:\/\/\S+$/i.test(postUrl.trim())) {
+      setUploadError('A URL do post deve começar com http:// ou https://');
+      return;
+    }
 
     setUploading(true);
     try {
@@ -99,6 +104,7 @@ export default function Upload() {
       formData.append('published_at', date);
       formData.append('platform', platform);
       formData.append('post_type', postType);
+      if (postUrl.trim()) formData.append('post_url', postUrl.trim());
 
       const res = await api.post('/posts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -201,6 +207,19 @@ export default function Upload() {
                   className="form-control"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
+                  disabled={uploading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="postUrl">Link do post (opcional)</label>
+                <input
+                  id="postUrl"
+                  type="url"
+                  className="form-control"
+                  value={postUrl}
+                  onChange={(e) => setPostUrl(e.target.value)}
+                  placeholder="https://www.instagram.com/p/..."
                   disabled={uploading}
                 />
               </div>

@@ -24,6 +24,7 @@ export default function EditPostModal({ post, endpoint, onSaved, onClose }) {
     const d = post.published_at || post.published_date || '';
     return typeof d === 'string' ? d.slice(0, 10) : '';
   });
+  const [postUrl, setPostUrl] = useState(post.post_url || '');
   const [values, setValues] = useState(() => {
     const init = {};
     FIELDS.forEach(({ key }) => {
@@ -43,6 +44,12 @@ export default function EditPostModal({ post, endpoint, onSaved, onClose }) {
         if (values[key] !== '') payload[key] = parseFloat(values[key]);
       });
       if (date) payload.published_at = date;
+      if (postUrl.trim() && !/^https?:\/\/\S+$/i.test(postUrl.trim())) {
+        setError('O link do post deve começar com http:// ou https://');
+        setSaving(false);
+        return;
+      }
+      payload.post_url = postUrl.trim();
       await api.patch(endpoint, payload);
       onSaved();
     } catch (err) {
@@ -72,6 +79,17 @@ export default function EditPostModal({ post, endpoint, onSaved, onClose }) {
             className="form-control"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label className="form-label">Link do post (opcional)</label>
+          <input
+            type="url"
+            className="form-control"
+            placeholder="https://www.instagram.com/p/..."
+            value={postUrl}
+            onChange={(e) => setPostUrl(e.target.value)}
           />
         </div>
 

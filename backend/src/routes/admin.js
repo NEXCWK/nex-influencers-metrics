@@ -492,10 +492,23 @@ router.patch('/posts/:id', async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(req.body, 'title') && String(req.body.title).trim()) {
       postUpdates.title = String(req.body.title).trim();
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'post_url')) {
+      const url = String(req.body.post_url || '').trim();
+      if (url && !/^https?:\/\/\S+$/i.test(url)) {
+        return res.status(400).json({ error: 'O link do post deve ser uma URL válida (http/https)' });
+      }
+      postUpdates.post_url = url || null;
+    }
 
     if (Object.keys(postUpdates).length > 0) {
       let { error: postErr } = await supabase.from('posts').update(postUpdates).eq('id', id);
-      // Graceful fallback if post_type column doesn't exist yet.
+      // Graceful fallback if post_url / post_type columns don't exist yet.
+      if (postErr && /post_url/i.test(postErr.message) && Object.prototype.hasOwnProperty.call(postUpdates, 'post_url')) {
+        const { post_url: _droppedUrl, ...rest } = postUpdates;
+        postErr = Object.keys(rest).length > 0
+          ? (await supabase.from('posts').update(rest).eq('id', id)).error
+          : null;
+      }
       if (postErr && /post_type/i.test(postErr.message) && postUpdates.post_type) {
         const { post_type: _dropped, ...rest } = postUpdates;
         postErr = Object.keys(rest).length > 0

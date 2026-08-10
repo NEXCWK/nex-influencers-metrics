@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../api.js';
 import { flattenPosts, flattenRanking } from '../utils/normalize.js';
 import { IconDownload, IconCamera, IconChevronLeft, IconChevronRight } from '../components/Icons.jsx';
-import { FormatBadge, DuplicateBadge, MetricCell } from '../components/PostBadges.jsx';
+import { FormatBadge, DuplicateBadge, MetricCell, PostLink } from '../components/PostBadges.jsx';
 import styles from './AdminAllPosts.module.css';
 
 const MONTHS = [
@@ -502,7 +502,10 @@ export default function AdminAllPosts() {
                             </div>
                           )}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <span style={{ fontWeight: 600, fontSize: 13 }}>{post.title || 'Sem titulo'}</span>
+                            <span style={{ fontWeight: 600, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              {post.title || 'Sem titulo'}
+                              <PostLink url={post.post_url} />
+                            </span>
                             {post.possible_duplicate && <DuplicateBadge />}
                           </div>
                         </div>

@@ -7,7 +7,7 @@ import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
 import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
-import { FormatBadge, DuplicateBadge, MetricCell } from '../components/PostBadges.jsx';
+import { FormatBadge, DuplicateBadge, MetricCell, PostLink } from '../components/PostBadges.jsx';
 import {
   IconDocument, IconSignal, IconEye,
   IconCamera, IconChevronLeft, IconChevronRight,
@@ -414,7 +414,10 @@ function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, b
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)' }}>{post.title || 'Sem titulo'}</span>
+                    <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {post.title || 'Sem titulo'}
+                      <PostLink url={post.post_url} />
+                    </span>
                     {post.possible_duplicate && <DuplicateBadge />}
                   </div>
                 </div>

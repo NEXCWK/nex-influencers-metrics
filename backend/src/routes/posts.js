@@ -78,26 +78,45 @@ router.get('/', async (req, res, next) => {
   try {
     const { year, month } = req.query;
 
-    let query = supabase
-      .from('posts')
-      .select(
-        `id, title, platform, post_type, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response,
-         metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, extra_metrics, created_at)`
-      )
-      .eq('user_id', req.user.id)
-      .order('published_at', { ascending: false });
+    const metricsCols =
+      'metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited, extra_metrics, created_at)';
+    const idBase = 'id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response';
+    const fullSelect = `${idBase}, post_type, post_url, ${metricsCols}`;
+    const noUrlSelect = `${idBase}, post_type, ${metricsCols}`;
+    const baseSelect = `${idBase}, ${metricsCols}`;
 
-    if (year && month) {
-      const y = parseInt(year, 10);
-      const m = parseInt(month, 10);
-      const start = `${y}-${String(m).padStart(2, '0')}-01`;
-      const nextM = m === 12 ? 1 : m + 1;
-      const nextY = m === 12 ? y + 1 : y;
-      const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
-      query = query.gte('published_at', start).lt('published_at', end);
+    const build = (selectStr) => {
+      let q = supabase
+        .from('posts')
+        .select(selectStr)
+        .eq('user_id', req.user.id)
+        .order('published_at', { ascending: false });
+
+      if (year && month) {
+        const y = parseInt(year, 10);
+        const m = parseInt(month, 10);
+        const start = `${y}-${String(m).padStart(2, '0')}-01`;
+        const nextM = m === 12 ? 1 : m + 1;
+        const nextY = m === 12 ? y + 1 : y;
+        const end = `${nextY}-${String(nextM).padStart(2, '0')}-01`;
+        q = q.gte('published_at', start).lt('published_at', end);
+      }
+      return q;
+    };
+
+    let { data, error } = await build(fullSelect);
+
+    // Graceful fallback: post_url (migration 005) or post_type (migration 003)
+    // may not exist yet — degrade instead of failing the whole listing.
+    if (error && /post_url/i.test(error.message)) {
+      console.warn('post_url ausente — retry sem essa coluna.');
+      ({ data, error } = await build(noUrlSelect));
+    }
+    if (error && /post_type/i.test(error.message)) {
+      console.warn('post_type ausente — usando select base.');
+      ({ data, error } = await build(baseSelect));
     }
 
-    const { data, error } = await query;
     if (error) {
       console.error('Get posts DB error:', error.message);
       return res.status(500).json({ error: 'Failed to fetch posts' });
@@ -132,6 +151,7 @@ router.post(
 
       const { title, published_at, platform } = req.body;
       const post_type = req.body.post_type === 'story' ? 'story' : 'feed';
+      const post_url = (req.body.post_url || '').trim() || null;
 
       // Validate required fields
       if (!title || !title.trim()) {
@@ -147,6 +167,9 @@ router.post(
         return res
           .status(400)
           .json({ error: `platform must be one of: ${ALLOWED_PLATFORMS.join(', ')}` });
+      }
+      if (post_url && !/^https?:\/\/\S+$/i.test(post_url)) {
+        return res.status(400).json({ error: 'post_url must be a valid http(s) URL' });
       }
 
       // Validate date format
@@ -168,17 +191,24 @@ router.post(
         title: title.trim(),
         platform,
         post_type,
+        post_url,
         published_at,
         confirmed_by_user: false,
       };
 
       let { error: insertError } = await supabase.from('posts').insert(postRecord);
 
-      // Graceful fallback: if the post_type column doesn't exist yet, retry
-      // without it. Fix: run migration 003_post_type.sql.
+      // Graceful fallback: if post_type/post_url columns don't exist yet,
+      // retry without them. Fix: run migrations 003_post_type.sql / 005_post_url.sql.
+      if (insertError && /post_url/i.test(insertError.message)) {
+        console.warn('post_url column missing — retrying insert without it.');
+        const { post_url: _droppedUrl, ...withoutUrl } = postRecord;
+        const retry = await supabase.from('posts').insert(withoutUrl);
+        insertError = retry.error;
+      }
       if (insertError && /post_type/i.test(insertError.message)) {
         console.warn('post_type column missing — retrying insert without it.');
-        const { post_type: _dropped, ...withoutType } = postRecord;
+        const { post_type: _dropped, post_url: _droppedUrl2, ...withoutType } = postRecord;
         const retry = await supabase.from('posts').insert(withoutType);
         insertError = retry.error;
       }
@@ -524,9 +554,22 @@ router.patch('/:id', async (req, res, next) => {
     if (Object.prototype.hasOwnProperty.call(req.body, 'title') && String(req.body.title).trim()) {
       postUpdates.title = String(req.body.title).trim();
     }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'post_url')) {
+      const url = String(req.body.post_url || '').trim();
+      if (url && !/^https?:\/\/\S+$/i.test(url)) {
+        return res.status(400).json({ error: 'O link do post deve ser uma URL válida (http/https)' });
+      }
+      postUpdates.post_url = url || null;
+    }
 
     if (Object.keys(postUpdates).length > 0) {
       let { error: postErr } = await supabase.from('posts').update(postUpdates).eq('id', id);
+      if (postErr && /post_url/i.test(postErr.message) && Object.prototype.hasOwnProperty.call(postUpdates, 'post_url')) {
+        const { post_url: _droppedUrl, ...rest } = postUpdates;
+        postErr = Object.keys(rest).length > 0
+          ? (await supabase.from('posts').update(rest).eq('id', id)).error
+          : null;
+      }
       if (postErr && /post_type/i.test(postErr.message) && postUpdates.post_type) {
         const { post_type: _dropped, ...rest } = postUpdates;
         postErr = Object.keys(rest).length > 0
