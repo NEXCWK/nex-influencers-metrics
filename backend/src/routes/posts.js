@@ -16,17 +16,18 @@ const router = express.Router();
 router.use(authenticate);
 
 // ---------------------------------------------------------------------------
-// Upload rate limiter: 30 uploads per user per hour
-// (raised from 10 — too tight for a normal catch-up session uploading many
-// posts back to back; still bounds runaway AI-extraction cost per user.)
+// Upload rate limiter: 80 uploads per user per hour
+// (raised from 10, then 30 — still too tight for a bulk catch-up session
+// uploading many posts back to back; still bounds runaway AI-extraction
+// cost per user.)
 // ---------------------------------------------------------------------------
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 30,
+  max: 80,
   keyGenerator: (req) => req.user.id,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Upload limit reached. You can upload at most 30 screenshots per hour.' },
+  message: { error: 'Upload limit reached. You can upload at most 80 screenshots per hour.' },
 });
 
 // ---------------------------------------------------------------------------
