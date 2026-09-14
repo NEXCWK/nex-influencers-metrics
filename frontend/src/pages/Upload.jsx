@@ -108,7 +108,7 @@ export default function Upload() {
 
       const res = await api.post('/posts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000, // headroom: storage uploads + bounded AI extraction (60s)
+        timeout: 150000, // headroom: parallel storage uploads + bounded AI extraction (60s)
       });
 
       const { post_id, metrics_extracted, confidence: conf, notes, ai_error } = res.data;
@@ -119,9 +119,19 @@ export default function Upload() {
       setAiError(ai_error || '');
       setModalOpen(true);
     } catch (err) {
-      setUploadError(
-        err.response?.data?.error || 'Erro ao enviar o post. Tente novamente.'
-      );
+      if (err.response) {
+        // Server answered with an error — safe to show and retry.
+        setUploadError(err.response.data?.error || 'Erro ao enviar o post. Tente novamente.');
+      } else {
+        // No response reached the browser (timeout, connection dropped, etc.):
+        // the server may have finished creating the post anyway. Don't let the
+        // user blindly resubmit and risk a duplicate.
+        setUploadError(
+          'A conexão demorou demais ou foi interrompida antes da resposta chegar. ' +
+          'O post PODE já ter sido criado no servidor — confira no seu Dashboard antes ' +
+          'de enviar novamente.'
+        );
+      }
     } finally {
       setUploading(false);
     }

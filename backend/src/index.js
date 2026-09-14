@@ -40,9 +40,13 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ---------------------------------------------------------------------------
 // Rate limiting — general
 // ---------------------------------------------------------------------------
+// Keyed by IP, so everyone behind the same office/NAT gateway shares this
+// budget. 100 req/15min was easily exhausted by normal multi-user traffic
+// (dashboards polling + several people uploading posts at once) and could
+// surface as unrelated-looking failures for other users on the same network.
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },

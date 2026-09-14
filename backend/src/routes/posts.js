@@ -16,15 +16,17 @@ const router = express.Router();
 router.use(authenticate);
 
 // ---------------------------------------------------------------------------
-// Upload rate limiter: 10 uploads per user per hour
+// Upload rate limiter: 30 uploads per user per hour
+// (raised from 10 — too tight for a normal catch-up session uploading many
+// posts back to back; still bounds runaway AI-extraction cost per user.)
 // ---------------------------------------------------------------------------
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 30,
   keyGenerator: (req) => req.user.id,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Upload limit reached. You can upload at most 10 screenshots per hour.' },
+  message: { error: 'Upload limit reached. You can upload at most 30 screenshots per hour.' },
 });
 
 // ---------------------------------------------------------------------------
@@ -218,23 +220,18 @@ router.post(
         return res.status(500).json({ error: 'Failed to create post record' });
       }
 
-      // 2. Upload every print to Supabase Storage (grouped under the post folder)
-      const imagePaths = [];
+      // 2. Upload every print to Supabase Storage (grouped under the post folder).
+      // Done in parallel instead of one-by-one — with up to 10 prints per post,
+      // a sequential loop could take long enough to tip the request over the
+      // client's timeout, especially when several posts are uploaded back to
+      // back and the server is still finishing a previous one.
+      let imagePaths;
       try {
-        for (let i = 0; i < files.length; i++) {
-          const f = files[i];
-          const path = await storage.uploadImage(
-            f.buffer,
-            f.mimetype,
-            userId,
-            postId,
-            year,
-            month,
-            extFromMime(f.mimetype),
-            i
-          );
-          imagePaths.push(path);
-        }
+        imagePaths = await Promise.all(
+          files.map((f, i) =>
+            storage.uploadImage(f.buffer, f.mimetype, userId, postId, year, month, extFromMime(f.mimetype), i)
+          )
+        );
       } catch (uploadErr) {
         // Clean up orphaned post on upload failure
         await supabase.from('posts').delete().eq('id', postId);

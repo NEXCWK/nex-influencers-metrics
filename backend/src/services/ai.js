@@ -9,7 +9,7 @@ const client = new Anthropic.default({
   maxRetries: 1,
 });
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5';
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 
 // Hard timeout for the extraction call. Must stay well under the frontend's
 // upload timeout so the request always returns: if the AI is slow or the API
