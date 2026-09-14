@@ -592,6 +592,19 @@ router.get('/export', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /admin/ai-status — checks which AI model is configured and whether the
+// Anthropic API key/model actually work (live ping, admin-only)
+// ---------------------------------------------------------------------------
+router.get('/ai-status', async (req, res, next) => {
+  try {
+    const result = await ai.pingModel();
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /admin/users — list all users
 // ---------------------------------------------------------------------------
 router.get('/users', async (req, res, next) => {

@@ -73,6 +73,7 @@ export default function AdminUsers() {
   const [form, setForm] = useState({ username: '', display_name: '', role: 'influencer' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [checkingAi, setCheckingAi] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -93,6 +94,34 @@ export default function AdminUsers() {
 
   const setUserLoading = (id, value) => {
     setActionLoading((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleCheckAiModel = async () => {
+    setCheckingAi(true);
+    try {
+      const res = await api.get('/admin/ai-status');
+      const d = res.data || {};
+      if (d.ok) {
+        alert(
+          `✅ IA funcionando normalmente.\n\n` +
+          `Modelo configurado: ${d.model}\n` +
+          (d.reported_model ? `Modelo confirmado pela Anthropic: ${d.reported_model}\n` : '') +
+          `Origem: ${d.configured_via_env ? 'variável de ambiente ANTHROPIC_MODEL' : 'padrão do código'}\n` +
+          `Tempo de resposta: ${d.latency_ms}ms`
+        );
+      } else {
+        alert(
+          `❌ Falha ao verificar a IA.\n\n` +
+          `Modelo configurado: ${d.model}\n` +
+          `Origem: ${d.configured_via_env ? 'variável de ambiente ANTHROPIC_MODEL' : 'padrão do código'}\n` +
+          `Erro: ${d.error || 'desconhecido'}`
+        );
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Erro ao verificar o modelo de IA.');
+    } finally {
+      setCheckingAi(false);
+    }
   };
 
   const openCreate = () => {
@@ -173,6 +202,9 @@ export default function AdminUsers() {
       <div className="page-header">
         <h1 className="page-title">Usuarios</h1>
         <div style={{ display: 'flex', gap: 10 }}>
+          <button className="btn btn-secondary" onClick={handleCheckAiModel} disabled={checkingAi}>
+            {checkingAi ? 'Verificando...' : 'Verificar modelo de IA'}
+          </button>
           <button className="btn btn-secondary" onClick={fetchUsers}>
             Atualizar
           </button>

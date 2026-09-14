@@ -178,4 +178,48 @@ async function extractMetrics(imageBuffer, mimeType) {
   return extractMetricsFromImages([{ buffer: imageBuffer, mimeType }]);
 }
 
-module.exports = { extractMetrics, extractMetricsFromImages };
+/**
+ * Lightweight live check: confirms the configured model id is valid and the
+ * API key works, without the cost of a real vision extraction call.
+ * Used by the admin-only "check AI model" button.
+ */
+async function pingModel() {
+  const startedAt = Date.now();
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      ok: false,
+      model: MODEL,
+      configured_via_env: !!process.env.ANTHROPIC_MODEL,
+      error: 'ANTHROPIC_API_KEY não está configurada no servidor',
+    };
+  }
+
+  try {
+    const message = await client.messages.create(
+      {
+        model: MODEL,
+        max_tokens: 4,
+        messages: [{ role: 'user', content: 'ping' }],
+      },
+      { timeout: 15 * 1000 }
+    );
+    return {
+      ok: true,
+      model: MODEL,
+      configured_via_env: !!process.env.ANTHROPIC_MODEL,
+      reported_model: message.model || null,
+      latency_ms: Date.now() - startedAt,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      model: MODEL,
+      configured_via_env: !!process.env.ANTHROPIC_MODEL,
+      latency_ms: Date.now() - startedAt,
+      error: err.message,
+    };
+  }
+}
+
+module.exports = { extractMetrics, extractMetricsFromImages, pingModel };
