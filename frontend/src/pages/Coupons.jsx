@@ -45,6 +45,7 @@ export default function Coupons() {
 }
 
 function AdminCoupons() {
+  const [view, setView] = useState('month'); // 'month' | 'year'
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [year, setYear] = useState(CURRENT_YEAR);
   const [rows, setRows] = useState([]);
@@ -86,14 +87,16 @@ function AdminCoupons() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/coupons/admin', { params: { month, year } });
+      const res = view === 'year'
+        ? await api.get('/coupons/admin/annual', { params: { year } })
+        : await api.get('/coupons/admin', { params: { month, year } });
       setRows(res.data?.rows || []);
     } catch {
       setError('Erro ao carregar cupons.');
     } finally {
       setLoading(false);
     }
-  }, [month, year]);
+  }, [view, month, year]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -125,17 +128,26 @@ function AdminCoupons() {
       <div className="page-header">
         <h1 className="page-title">Cupons</h1>
         <div style={{ display: 'flex', gap: 10 }}>
-          <select className="form-control" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-          </select>
+          {view === 'month' && (
+            <select className="form-control" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+              {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+            </select>
+          )}
           <select className="form-control" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
       </div>
 
+      <div className="tab-bar" style={{ marginBottom: 4 }}>
+        <button className={`tab-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Mensal</button>
+        <button className={`tab-btn ${view === 'year' ? 'active' : ''}`} onClick={() => setView('year')}>Anual</button>
+      </div>
+
       <p className={styles.subtitle}>
-        Registre quantas vezes cada cupom foi utilizado em {MONTHS[month - 1]}/{year}.
+        {view === 'year'
+          ? `Total de cupons utilizados somando todos os meses de ${year}.`
+          : `Registre quantas vezes cada cupom foi utilizado em ${MONTHS[month - 1]}/${year}.`}
       </p>
 
       {!loading && rows.length > 0 && (
@@ -168,49 +180,59 @@ function AdminCoupons() {
                 <th style={{ textAlign: 'center' }}>Assinatura Gallery</th>
                 <th style={{ textAlign: 'center' }}>Assinatura Atrium</th>
                 <th style={{ textAlign: 'center' }}>Cupom Access</th>
-                <th style={{ width: 80 }}></th>
+                {view === 'month' && <th style={{ width: 80 }}></th>}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 32 }}>Nenhum influenciador ativo.</td></tr>
+                <tr><td colSpan={view === 'month' ? 5 : 4} style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 32 }}>Nenhum influenciador ativo.</td></tr>
               ) : rows.map((row) => (
                 <tr key={row.user_id}>
                   <td style={{ fontWeight: 600 }}>{row.display_name || row.username}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <Stepper
-                      value={row.gallery_count ?? 0}
-                      onChange={(v) => updateField(row.user_id, 'gallery_count', v)}
-                      disabled={savingId === row.user_id}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <Stepper
-                      value={row.atrium_count ?? 0}
-                      onChange={(v) => updateField(row.user_id, 'atrium_count', v)}
-                      disabled={savingId === row.user_id}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <Stepper
-                      value={row.access_count ?? 0}
-                      onChange={(v) => updateField(row.user_id, 'access_count', v)}
-                      disabled={savingId === row.user_id}
-                    />
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    {savingId === row.user_id && (
-                      <span className={styles.savingDot} title="Salvando..." />
-                    )}
-                    {savedId === row.user_id && savingId !== row.user_id && (
-                      <span className={styles.savedCheck}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                        Salvo
-                      </span>
-                    )}
-                  </td>
+                  {view === 'year' ? (
+                    <>
+                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.gallery_count ?? 0}</td>
+                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.atrium_count ?? 0}</td>
+                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.access_count ?? 0}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td style={{ textAlign: 'center' }}>
+                        <Stepper
+                          value={row.gallery_count ?? 0}
+                          onChange={(v) => updateField(row.user_id, 'gallery_count', v)}
+                          disabled={savingId === row.user_id}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Stepper
+                          value={row.atrium_count ?? 0}
+                          onChange={(v) => updateField(row.user_id, 'atrium_count', v)}
+                          disabled={savingId === row.user_id}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <Stepper
+                          value={row.access_count ?? 0}
+                          onChange={(v) => updateField(row.user_id, 'access_count', v)}
+                          disabled={savingId === row.user_id}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {savingId === row.user_id && (
+                          <span className={styles.savingDot} title="Salvando..." />
+                        )}
+                        {savedId === row.user_id && savingId !== row.user_id && (
+                          <span className={styles.savedCheck}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                            Salvo
+                          </span>
+                        )}
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -221,7 +243,7 @@ function AdminCoupons() {
                   <td style={{ textAlign: 'center' }}>{totals.gallery}</td>
                   <td style={{ textAlign: 'center' }}>{totals.atrium}</td>
                   <td style={{ textAlign: 'center' }}>{totals.access}</td>
-                  <td></td>
+                  {view === 'month' && <td></td>}
                 </tr>
               </tfoot>
             )}

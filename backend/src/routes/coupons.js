@@ -121,6 +121,59 @@ router.get('/admin', requireAdmin, async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// ADMIN: GET /coupons/admin/annual — all active influencers with their counts
+// SUMMED across every month registered in the given year
+// ---------------------------------------------------------------------------
+router.get('/admin/annual', requireAdmin, async (req, res, next) => {
+  try {
+    const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
+
+    const { data: influencers, error: usersError } = await supabase
+      .from('users')
+      .select('id, username, display_name')
+      .eq('role', 'influencer')
+      .eq('is_active', true)
+      .order('display_name', { ascending: true });
+
+    if (usersError) {
+      console.error('GET /coupons/admin/annual users error:', usersError.message);
+      return res.status(500).json({ error: 'Failed to fetch influencers' });
+    }
+
+    const { data: records, error: recordsError } = await supabase
+      .from('coupon_records')
+      .select('user_id, gallery_count, atrium_count, access_count')
+      .eq('year', year);
+
+    if (recordsError) {
+      console.error('GET /coupons/admin/annual records error:', recordsError.message);
+      return res.status(500).json({ error: 'Failed to fetch coupon records' });
+    }
+
+    const sumsByUser = {};
+    (records || []).forEach((r) => {
+      if (!sumsByUser[r.user_id]) sumsByUser[r.user_id] = { gallery_count: 0, atrium_count: 0, access_count: 0 };
+      sumsByUser[r.user_id].gallery_count += r.gallery_count ?? 0;
+      sumsByUser[r.user_id].atrium_count += r.atrium_count ?? 0;
+      sumsByUser[r.user_id].access_count += r.access_count ?? 0;
+    });
+
+    const rows = (influencers || []).map((inf) => ({
+      user_id: inf.id,
+      username: inf.username,
+      display_name: inf.display_name,
+      gallery_count: sumsByUser[inf.id]?.gallery_count ?? 0,
+      atrium_count: sumsByUser[inf.id]?.atrium_count ?? 0,
+      access_count: sumsByUser[inf.id]?.access_count ?? 0,
+    }));
+
+    return res.json({ year, rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // ADMIN: PUT /coupons/admin/:userId — set counts for an influencer/month
 // Body: { year, month, gallery_count, atrium_count, access_count }
 // ---------------------------------------------------------------------------
