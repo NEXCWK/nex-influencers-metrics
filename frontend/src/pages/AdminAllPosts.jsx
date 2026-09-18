@@ -184,6 +184,7 @@ export default function AdminAllPosts() {
   const [formatFilter, setFormatFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [sortBy, setSortBy] = useState('');
   const [page, setPage] = useState(1);
 
   const [posts, setPosts] = useState([]);
@@ -211,8 +212,9 @@ export default function AdminAllPosts() {
     if (formatFilter) p.postType = formatFilter;
     if (dateFrom) p.startDate = dateFrom;
     if (dateTo) p.endDate = dateTo;
+    if (sortBy) p.sortBy = sortBy;
     return p;
-  }, [influencerFilter, monthFilter, yearFilter, platformFilter, formatFilter, dateFrom, dateTo, page]);
+  }, [influencerFilter, monthFilter, yearFilter, platformFilter, formatFilter, dateFrom, dateTo, sortBy, page]);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -247,6 +249,7 @@ export default function AdminAllPosts() {
     setFormatFilter('');
     setDateFrom('');
     setDateTo('');
+    setSortBy('');
     setPage(1);
   };
 
@@ -439,6 +442,24 @@ export default function AdminAllPosts() {
         <button type="submit" className="btn btn-primary btn-sm">Filtrar</button>
         <button type="button" className="btn btn-secondary btn-sm" onClick={clearAllFilters}>Limpar</button>
       </form>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-muted)', fontFamily: 'var(--font)' }}>
+          Ordenar por:
+        </label>
+        <select
+          className="form-control"
+          style={{ width: 'auto', fontWeight: 600 }}
+          value={sortBy}
+          onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+        >
+          <option value="">Mais recente (data de publicação)</option>
+          <option value="recent">Post mais recente (data de registro no sistema)</option>
+          <option value="best_views">Melhor post (por visualização)</option>
+          <option value="best_reach">Melhor post (por alcance)</option>
+          <option value="best_likes">Melhor post (por curtida)</option>
+        </select>
+      </div>
 
       {activeChips.length > 0 && (
         <div className={styles.filterChipsRow}>

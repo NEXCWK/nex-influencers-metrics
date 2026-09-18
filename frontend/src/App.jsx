@@ -12,6 +12,7 @@ import AdminInfluencer from './pages/AdminInfluencer.jsx';
 import AdminAllPosts from './pages/AdminAllPosts.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminReports from './pages/AdminReports.jsx';
+import AdminFreelancers from './pages/AdminFreelancers.jsx';
 import Profile from './pages/Profile.jsx';
 import Coupons from './pages/Coupons.jsx';
 
@@ -154,6 +155,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <AdminReports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/freelancers"
+        element={
+          <ProtectedRoute adminOnly>
+            <AdminFreelancers />
           </ProtectedRoute>
         }
       />

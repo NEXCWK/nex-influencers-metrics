@@ -301,6 +301,14 @@ async function getInfluencersRanking(year, month, sortBy = 'reach') {
 // ---------------------------------------------------------------------------
 // getAllPostsFiltered
 // ---------------------------------------------------------------------------
+// Sort options exposed in the "Todos os Posts" admin screen.
+const POST_SORT_OPTIONS = {
+  best_views: { column: 'impressions', foreignTable: 'metrics' },
+  best_reach: { column: 'reach', foreignTable: 'metrics' },
+  best_likes: { column: 'likes', foreignTable: 'metrics' },
+  recent: { column: 'uploaded_at' }, // system registration date, not published_at
+};
+
 async function getAllPostsFiltered({
   influencerId,
   year,
@@ -309,6 +317,7 @@ async function getAllPostsFiltered({
   postType,
   startDate,
   endDate,
+  sortBy,
   page = 1,
   pageSize = 20,
 } = {}) {
@@ -318,13 +327,24 @@ async function getAllPostsFiltered({
   const metricsCols =
     'metrics(reach, impressions, likes, comments, shares, saves, plays, engagement_rate, profile_visits, link_clicks, manually_edited)';
 
+  const sortOption = POST_SORT_OPTIONS[sortBy];
+
   // Build the query for a given select string, re-applying all filters.
   const build = (selectStr) => {
     let q = supabase
       .from('posts')
       .select(selectStr, { count: 'exact' })
-      .order('published_at', { ascending: false })
       .range(from, to);
+
+    if (sortOption) {
+      q = q.order(sortOption.column, {
+        ascending: false,
+        nullsFirst: false,
+        ...(sortOption.foreignTable ? { foreignTable: sortOption.foreignTable } : {}),
+      });
+    } else {
+      q = q.order('published_at', { ascending: false });
+    }
 
     if (influencerId) q = q.eq('user_id', influencerId);
     if (platform) q = q.eq('platform', platform);

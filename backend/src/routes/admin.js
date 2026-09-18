@@ -201,6 +201,7 @@ router.get('/posts', async (req, res, next) => {
       postType,
       startDate,
       endDate,
+      sortBy,
       page = 1,
       pageSize = 20,
     } = req.query;
@@ -213,6 +214,7 @@ router.get('/posts', async (req, res, next) => {
       postType,
       startDate,
       endDate,
+      sortBy,
       page: parseInt(page, 10),
       pageSize: Math.min(parseInt(pageSize, 10), 100),
     });
@@ -840,6 +842,216 @@ router.patch('/users/:id/toggle', async (req, res, next) => {
       message: `User "${user.username}" is now ${newStatus ? 'active' : 'deactivated'}.`,
       is_active: newStatus,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Influenciadores Avulsos — freelance influencers, cadastrados e lançados
+// manualmente pelo admin (não têm login nem fluxo de upload por print).
+// ---------------------------------------------------------------------------
+const FREELANCE_FORMATS = ['feed', 'story', 'reels', 'video', 'carrossel', 'live', 'outro'];
+
+function aggregateFreelancePosts(posts) {
+  const formats = new Set();
+  let likes = 0, views = 0, comments = 0, reposts = 0;
+  for (const p of posts) {
+    formats.add(p.format);
+    likes += p.likes ?? 0;
+    views += p.views ?? 0;
+    comments += p.comments ?? 0;
+    reposts += p.reposts ?? 0;
+  }
+  return {
+    post_count: posts.length,
+    formats: Array.from(formats),
+    total_likes: likes,
+    total_views: views,
+    total_comments: comments,
+    total_reposts: reposts,
+  };
+}
+
+// GET /admin/freelancers — list all, each with aggregated stats
+router.get('/freelancers', async (req, res, next) => {
+  try {
+    const { data: influencers, error: infError } = await supabase
+      .from('freelance_influencers')
+      .select('id, name, notes, created_at')
+      .order('created_at', { ascending: true });
+
+    if (infError) {
+      if (/relation .* does not exist/i.test(infError.message)) {
+        return res.json({ influencers: [], migration_pending: true });
+      }
+      console.error('GET /admin/freelancers error:', infError.message);
+      return res.status(500).json({ error: 'Failed to fetch freelance influencers' });
+    }
+
+    const { data: posts, error: postsError } = await supabase
+      .from('freelance_posts')
+      .select('influencer_id, format, likes, views, comments, reposts');
+
+    if (postsError) {
+      console.error('GET /admin/freelancers posts error:', postsError.message);
+      return res.status(500).json({ error: 'Failed to fetch freelance posts' });
+    }
+
+    const byInfluencer = {};
+    (posts || []).forEach((p) => {
+      if (!byInfluencer[p.influencer_id]) byInfluencer[p.influencer_id] = [];
+      byInfluencer[p.influencer_id].push(p);
+    });
+
+    const result = (influencers || []).map((inf) => ({
+      ...inf,
+      ...aggregateFreelancePosts(byInfluencer[inf.id] || []),
+    }));
+
+    return res.json({ influencers: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /admin/freelancers — create a freelance influencer
+router.post('/freelancers', async (req, res, next) => {
+  try {
+    const name = (req.body.name || '').trim();
+    const notes = (req.body.notes || '').trim() || null;
+
+    if (!name) {
+      return res.status(400).json({ error: 'O nome é obrigatório' });
+    }
+
+    const { data, error } = await supabase
+      .from('freelance_influencers')
+      .insert({ name, notes })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('POST /admin/freelancers error:', error.message);
+      return res.status(500).json({ error: 'Falha ao criar o influenciador avulso' });
+    }
+
+    return res.status(201).json({ influencer: { ...data, ...aggregateFreelancePosts([]) } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /admin/freelancers/:id — remove influencer and all their posts
+router.delete('/freelancers/:id', async (req, res, next) => {
+  try {
+    const { error } = await supabase
+      .from('freelance_influencers')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      console.error('DELETE /admin/freelancers/:id error:', error.message);
+      return res.status(500).json({ error: 'Falha ao excluir o influenciador avulso' });
+    }
+
+    return res.json({ message: 'Influenciador avulso removido' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /admin/freelancers/:id/posts — list posts of one freelance influencer
+router.get('/freelancers/:id/posts', async (req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from('freelance_posts')
+      .select('*')
+      .eq('influencer_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('GET /admin/freelancers/:id/posts error:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch posts' });
+    }
+
+    return res.json({ posts: data || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /admin/freelancers/:id/posts — register a post manually
+router.post('/freelancers/:id/posts', async (req, res, next) => {
+  try {
+    const influencerId = req.params.id;
+    const postUrl = (req.body.post_url || '').trim();
+    const format = FREELANCE_FORMATS.includes(req.body.format) ? req.body.format : 'feed';
+    const likes = Math.max(0, parseInt(req.body.likes, 10) || 0);
+    const views = Math.max(0, parseInt(req.body.views, 10) || 0);
+    const comments = Math.max(0, parseInt(req.body.comments, 10) || 0);
+    const reposts = Math.max(0, parseInt(req.body.reposts, 10) || 0);
+
+    if (!postUrl) {
+      return res.status(400).json({ error: 'O link do post é obrigatório' });
+    }
+    if (!/^https?:\/\/\S+$/i.test(postUrl)) {
+      return res.status(400).json({ error: 'O link do post deve ser uma URL válida (http/https)' });
+    }
+
+    const { data: influencer, error: infError } = await supabase
+      .from('freelance_influencers')
+      .select('id')
+      .eq('id', influencerId)
+      .maybeSingle();
+
+    if (infError) {
+      return res.status(500).json({ error: 'Failed to verify influencer' });
+    }
+    if (!influencer) {
+      return res.status(404).json({ error: 'Influenciador avulso não encontrado' });
+    }
+
+    const { data, error } = await supabase
+      .from('freelance_posts')
+      .insert({
+        influencer_id: influencerId,
+        post_url: postUrl,
+        format,
+        likes,
+        views,
+        comments,
+        reposts,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('POST /admin/freelancers/:id/posts error:', error.message);
+      return res.status(500).json({ error: 'Falha ao registrar o post' });
+    }
+
+    return res.status(201).json({ post: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /admin/freelancers/:id/posts/:postId — remove one manually-registered post
+router.delete('/freelancers/:id/posts/:postId', async (req, res, next) => {
+  try {
+    const { error } = await supabase
+      .from('freelance_posts')
+      .delete()
+      .eq('id', req.params.postId)
+      .eq('influencer_id', req.params.id);
+
+    if (error) {
+      console.error('DELETE /admin/freelancers/:id/posts/:postId error:', error.message);
+      return res.status(500).json({ error: 'Falha ao excluir o post' });
+    }
+
+    return res.json({ message: 'Post removido' });
   } catch (err) {
     next(err);
   }
