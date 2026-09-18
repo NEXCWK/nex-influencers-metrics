@@ -6,6 +6,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
 
 const authRouter = require('./routes/auth');
 const postsRouter = require('./routes/posts');
@@ -141,6 +142,27 @@ async function start() {
       console.log(`CORS origin: ${corsOrigin}`);
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Scheduled job: monthly performance report, day 5 of each month at 08:00
+  // (America/Sao_Paulo), covering the complete previous calendar month.
+  // Sending only actually happens once SMTP_* env vars are configured — until
+  // then the report is still generated and stored for admin preview.
+  // ---------------------------------------------------------------------------
+  cron.schedule(
+    '0 8 5 * *',
+    async () => {
+      console.log('Running scheduled monthly report job...');
+      try {
+        const { runMonthlyReportJob } = require('./jobs/monthlyReportJob');
+        const { emailResult } = await runMonthlyReportJob();
+        console.log('Monthly report job finished:', emailResult);
+      } catch (err) {
+        console.error('Monthly report job failed:', err.message);
+      }
+    },
+    { timezone: 'America/Sao_Paulo' }
+  );
 }
 
 start().catch((err) => {

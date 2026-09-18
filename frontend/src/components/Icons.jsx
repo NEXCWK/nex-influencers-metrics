@@ -234,6 +234,15 @@ export function IconBarChart({ size }) {
   );
 }
 
+export function IconMail({ size }) {
+  return (
+    <Svg size={size}>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <polyline points="2 7 12 13 22 7" />
+    </Svg>
+  );
+}
+
 export function IconRefresh({ size }) {
   return (
     <Svg size={size}>

@@ -605,6 +605,77 @@ router.get('/ai-status', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Monthly performance report (day-5 cron, admin-only manual controls)
+// ---------------------------------------------------------------------------
+
+// GET /admin/reports — list generated monthly reports (most recent first)
+router.get('/reports', async (req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from('monthly_reports')
+      .select('id, report_year, report_month, recipients, sent, sent_at, send_error, generated_at')
+      .order('report_year', { ascending: false })
+      .order('report_month', { ascending: false });
+
+    if (error) {
+      if (/relation .* does not exist/i.test(error.message)) {
+        return res.json({ reports: [], migration_pending: true });
+      }
+      console.error('GET /admin/reports error:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch reports' });
+    }
+
+    return res.json({ reports: data || [] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /admin/reports/:id — full report row including the rendered HTML
+router.get('/reports/:id', async (req, res, next) => {
+  try {
+    const { data, error } = await supabase
+      .from('monthly_reports')
+      .select('*')
+      .eq('id', req.params.id)
+      .maybeSingle();
+
+    if (error) {
+      console.error('GET /admin/reports/:id error:', error.message);
+      return res.status(500).json({ error: 'Failed to fetch report' });
+    }
+    if (!data) return res.status(404).json({ error: 'Report not found' });
+
+    return res.json({ report: data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /admin/reports/generate — generate (and attempt to send) the report
+// for the complete month before the given reference date, on demand. Body:
+// { year?, month? } to target a specific past month instead of "last month".
+router.post('/reports/generate', async (req, res, next) => {
+  try {
+    const { runMonthlyReportJob } = require('../jobs/monthlyReportJob');
+
+    let refDate = new Date();
+    if (req.body.year && req.body.month) {
+      // runMonthlyReportJob targets the month BEFORE refDate, so add 1 month.
+      const y = parseInt(req.body.year, 10);
+      const m = parseInt(req.body.month, 10);
+      refDate = new Date(Date.UTC(y, m, 1, 12));
+    }
+
+    const { saved, emailResult } = await runMonthlyReportJob(refDate);
+    return res.status(201).json({ report: saved, email: emailResult });
+  } catch (err) {
+    console.error('POST /admin/reports/generate error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to generate report' });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /admin/users — list all users
 // ---------------------------------------------------------------------------
 router.get('/users', async (req, res, next) => {

@@ -421,4 +421,7 @@ module.exports = {
   getInfluencersRanking,
   getAllPostsFiltered,
   exportPostsCSV,
+  monthRange,
+  countPostTypesByUser,
+  fetchAggregatedForRange,
 };

@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
   IconGrid, IconUpload, IconTicket, IconUser,
-  IconList, IconUsers,
+  IconList, IconUsers, IconMail,
 } from './Icons.jsx';
 import styles from './Navbar.module.css';
 
@@ -18,6 +18,7 @@ const adminLinks = [
   { to: '/admin', label: 'Visao Geral', icon: <IconGrid size={15} />, end: true },
   { to: '/admin/posts', label: 'Todos os Posts', icon: <IconList size={15} /> },
   { to: '/admin/users', label: 'Usuarios', icon: <IconUsers size={15} /> },
+  { to: '/admin/reports', label: 'Relatório Mensal', icon: <IconMail size={15} /> },
   // Admins também têm o fluxo do influenciador (Dashboard pessoal + envio de
   // posts/métricas) para testar o processo completo ponta a ponta.
   { to: '/dashboard', label: 'Meu Dashboard', icon: <IconGrid size={15} /> },
