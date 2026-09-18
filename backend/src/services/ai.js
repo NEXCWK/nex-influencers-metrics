@@ -9,19 +9,28 @@ const client = new Anthropic.default({
   maxRetries: 1,
 });
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
+// Opus for maximum visual-reading precision (small numbers/labels on
+// screenshots) — a deliberate accuracy-over-cost tradeoff, requested after
+// Sonnet extractions were missing/misreading metrics.
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
 
 // Hard timeout for the extraction call. Must stay well under the frontend's
 // upload timeout so the request always returns: if the AI is slow or the API
 // is overloaded, we fail fast and fall back to manual metric entry instead of
-// leaving the upload hanging until the client gives up.
-const AI_TIMEOUT_MS = 60 * 1000;
+// leaving the upload hanging until the client gives up. Opus is slower than
+// Sonnet, so this has more headroom than before.
+const AI_TIMEOUT_MS = 90 * 1000;
 
-const EXTRACTION_PROMPT = `Você é um sistema de extração de métricas de redes sociais.
+function buildExtractionPrompt(imageCount) {
+  return `Você é um sistema de extração de métricas de redes sociais.
 
-As imagens fornecidas são DIVERSOS PRINTS DE UM ÚNICO POST. Cada print pode mostrar
-métricas diferentes do mesmo post. Analise TODOS os prints em conjunto e CONSOLIDE
-os dados em um único conjunto de métricas para esse post.
+Você recebeu ${imageCount} imagem${imageCount !== 1 ? 's' : ''} nesta mensagem — TODAS são
+prints de UM ÚNICO POST (não pule nenhuma). Examine CADA UMA das ${imageCount}
+imagens individualmente, uma por uma, antes de consolidar: é comum que métricas
+diferentes apareçam em prints diferentes (ex.: o 1º print mostra Alcance/Curtidas
+e o 2º mostra Visitas ao perfil/Cliques no link). Ignorar qualquer imagem além da
+primeira é um erro grave. Depois de examinar todas, CONSOLIDE os dados em um único
+conjunto de métricas para esse post.
 
 Extraia TODAS as métricas que conseguir identificar visualmente nos prints — não se
 limite aos campos principais abaixo. Qualquer métrica visível (ex: "Não-seguidores
@@ -43,6 +52,12 @@ MAPEAMENTO OBRIGATÓRIO (terminologia atual do Instagram/Meta) — siga à risca
   deixe plays = null e use impressions.
 - Em plataformas que ainda usam o rótulo "Impressões", trate "Impressões" como
   impressions.
+
+"profile_visits" (Visitas ao perfil) — SEMPRE que APARECER em QUALQUER print
+(feed ou story), extraia esse valor, mesmo que os outros campos principais já
+estejam preenchidos. Variações de rótulo a procurar: "Visitas ao perfil",
+"Perfil visitado", "Visualizações do perfil", "Toques no perfil", "Visitas de
+perfil". Se aparecer em mais de um print, use o mais legível.
 
 MÉTRICAS DE STORIES (Instagram) — prints de story mostram rótulos diferentes de
 um post de feed. Faça o melhor mapeamento possível para os campos padrão e jogue
@@ -115,6 +130,7 @@ se encaixem nos campos principais acima, ex:
 
 Se detectar a plataforma pelo visual, informe em platform_detected.
 Se houver ambiguidade em algum valor, registre em notes.`;
+}
 
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -145,23 +161,29 @@ async function extractMetricsFromImages(images) {
     throw new Error('extractMetricsFromImages requires at least one image');
   }
 
-  const imageBlocks = images.map(({ buffer, mimeType }) => ({
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: SUPPORTED_MIME_TYPES.includes(mimeType) ? mimeType : 'image/jpeg',
-      data: buffer.toString('base64'),
+  // Interleave a "Print N:" label before each image — this measurably helps
+  // Claude ground its reasoning per-image instead of skimming only the first
+  // one, especially important now that a post can carry up to 10 prints.
+  const imageBlocks = images.flatMap(({ buffer, mimeType }, i) => [
+    { type: 'text', text: `Print ${i + 1} de ${images.length}:` },
+    {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: SUPPORTED_MIME_TYPES.includes(mimeType) ? mimeType : 'image/jpeg',
+        data: buffer.toString('base64'),
+      },
     },
-  }));
+  ]);
 
   const message = await client.messages.create(
     {
       model: MODEL,
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [
         {
           role: 'user',
-          content: [...imageBlocks, { type: 'text', text: EXTRACTION_PROMPT }],
+          content: [...imageBlocks, { type: 'text', text: buildExtractionPrompt(images.length) }],
         },
       ],
     },

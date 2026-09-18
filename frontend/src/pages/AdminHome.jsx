@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import { flattenRanking } from '../utils/normalize.js';
-import { IconUsers, IconDocument, IconSignal, IconEye } from '../components/Icons.jsx';
+import { IconUsers, IconDocument, IconSignal, IconEye, IconHeart } from '../components/Icons.jsx';
 import styles from './AdminHome.module.css';
 
 const MONTHS = [
@@ -39,7 +39,7 @@ export default function AdminHome() {
   const [month, setMonth] = useState(CURRENT_MONTH);
   const [year, setYear] = useState(CURRENT_YEAR);
   const [platform, setPlatform] = useState('');
-  const [sortBy, setSortBy] = useState('reach');
+  const [sortBy, setSortBy] = useState('impressions');
   const [sortDir, setSortDir] = useState('desc');
 
   const [overview, setOverview] = useState(null);
@@ -130,13 +130,14 @@ export default function AdminHome() {
 
       <div className="metrics-grid">
         {loading ? (
-          <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
+          <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
         ) : (
           <>
+            <MetricCard label="Visualizacoes Totais" value={overview?.aggregate?.impressions ?? 0} icon={<IconEye size={16} />} highlight />
+            <MetricCard label="Curtidas Totais" value={overview?.aggregate?.likes ?? 0} icon={<IconHeart size={16} />} highlight />
             <MetricCard label="Influenciadores Ativos" value={overview?.active_influencers ?? 0} icon={<IconUsers size={16} />} />
             <MetricCard label="Total de Posts" value={overview?.total_posts ?? 0} icon={<IconDocument size={16} />} />
             <MetricCard label="Alcance Total" value={overview?.aggregate?.reach ?? 0} icon={<IconSignal size={16} />} />
-            <MetricCard label="Visualizacoes Totais" value={overview?.aggregate?.impressions ?? 0} icon={<IconEye size={16} />} />
           </>
         )}
       </div>
@@ -154,18 +155,21 @@ export default function AdminHome() {
                   <th>Nome</th>
                   <th>Feed</th>
                   <th>Stories</th>
-                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('reach')}>
-                    Alcance<SortIcon col="reach" />
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('impressions')}>
+                    Visualizações<SortIcon col="impressions" />
                   </th>
                   <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('likes')}>
                     Curtidas<SortIcon col="likes" />
+                  </th>
+                  <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => handleSort('reach')}>
+                    Alcance<SortIcon col="reach" />
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ padding: 0, border: 0 }}>
+                    <td colSpan={7} style={{ padding: 0, border: 0 }}>
                       <div className={styles.emptyState}>
                         <p className={styles.emptyStateTitle}>
                           Sem dados em {MONTHS[month - 1]}/{year}
@@ -184,7 +188,7 @@ export default function AdminHome() {
                     return (
                       <tr
                         key={inf.id}
-                        onClick={() => navigate(`/admin/influencers/${inf.id}`)}
+                        onClick={() => navigate(`/admin/influencers/${inf.id}?year=${year}&month=${month}`)}
                         style={{ cursor: 'pointer' }}
                       >
                         <td>
@@ -201,8 +205,9 @@ export default function AdminHome() {
                         </td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.feed_count ?? 0}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{inf.story_count ?? 0}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{formatNum(inf.impressions)}</td>
+                        <td style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{formatNum(inf.likes)}</td>
                         <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.reach)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(inf.likes)}</td>
                       </tr>
                     );
                   })

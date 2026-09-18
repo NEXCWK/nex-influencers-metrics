@@ -25,11 +25,11 @@ function formatChange(current, previous) {
   return pct;
 }
 
-export default function MetricCard({ label, value, unit, previousValue, icon }) {
+export default function MetricCard({ label, value, unit, previousValue, icon, highlight }) {
   const change = previousValue !== undefined ? formatChange(value, previousValue) : null;
 
   return (
-    <div className={styles.card}>
+    <div className={`${styles.card} ${highlight ? styles.highlight : ''}`}>
       <div className={styles.header}>
         {icon && <span className={styles.iconBadge}>{icon}</span>}
         <span className={styles.label}>{label}</span>

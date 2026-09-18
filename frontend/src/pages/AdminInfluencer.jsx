@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
 import PostList from '../components/PostList.jsx';
@@ -9,7 +9,7 @@ import YearView from '../components/Charts/YearView.jsx';
 import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
 import { FormatBadge, DuplicateBadge, MetricCell, PostLink } from '../components/PostBadges.jsx';
 import {
-  IconDocument, IconSignal, IconEye,
+  IconDocument, IconSignal, IconEye, IconHeart,
   IconCamera, IconChevronLeft, IconChevronRight,
 } from '../components/Icons.jsx';
 import styles from './AdminInfluencer.module.css';
@@ -137,9 +137,35 @@ function PostImageModal({ post, onClose }) {
 export default function AdminInfluencer() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [month, setMonth] = useState(CURRENT_MONTH);
-  const [year, setYear] = useState(CURRENT_YEAR);
+  const urlYear = parseInt(searchParams.get('year'), 10);
+  const urlMonth = parseInt(searchParams.get('month'), 10);
+
+  const [month, setMonthState] = useState(urlMonth >= 1 && urlMonth <= 12 ? urlMonth : CURRENT_MONTH);
+  const [year, setYearState] = useState(!isNaN(urlYear) ? urlYear : CURRENT_YEAR);
+
+  // Keep the URL in sync so the chosen month/year survives navigation
+  // (e.g. back to Visão Geral and into another influencer) instead of
+  // always resetting to the current month.
+  const setMonth = (m) => {
+    setMonthState(m);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('month', String(m));
+      next.set('year', String(year));
+      return next;
+    });
+  };
+  const setYear = (y) => {
+    setYearState(y);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('year', String(y));
+      next.set('month', String(month));
+      return next;
+    });
+  };
   const [tab, setTab] = useState('month');
 
   const [influencer, setInfluencer] = useState(null);
@@ -289,9 +315,10 @@ export default function AdminInfluencer() {
           <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
         ) : (
           <>
+            <MetricCard label="Visualizacoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} highlight />
+            <MetricCard label="Curtidas Totais" value={cur.total_likes} icon={<IconHeart size={16} />} previousValue={prev.total_likes} highlight />
             <MetricCard label="Total de Posts" value={cur.total_posts} icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
             <MetricCard label="Alcance Total" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
-            <MetricCard label="Visualizacoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} />
           </>
         )}
       </div>
@@ -396,7 +423,7 @@ function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, b
             <th>Plataforma</th>
             <th>Formato</th>
             <th>Data</th>
-            <th>Alcance</th>
+            <th>Visualizações</th>
             <th>Curtidas</th>
             <th>Acoes</th>
           </tr>
@@ -425,7 +452,7 @@ function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, b
               <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
               <td><FormatBadge type={post.post_type} /></td>
               <td style={{ color: 'var(--ink-muted)', fontSize: 13 }}>{formatDate(post.published_date || post.created_at)}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.reach} format={formatNum} /></td>
+              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.impressions} format={formatNum} /></td>
               <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.likes} format={formatNum} /></td>
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>

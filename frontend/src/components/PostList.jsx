@@ -60,7 +60,7 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
             <th>Plataforma</th>
             <th>Formato</th>
             <th>Data</th>
-            <th>Alcance</th>
+            <th>Visualizações</th>
             <th>Curtidas</th>
             {onEdit && <th>Ações</th>}
           </tr>
@@ -101,7 +101,7 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
               <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
                 {formatDate(post.published_date || post.created_at)}
               </td>
-              <td><MetricCell value={post.reach} format={formatNum} /></td>
+              <td><MetricCell value={post.impressions} format={formatNum} /></td>
               <td><MetricCell value={post.likes} format={formatNum} /></td>
               {onEdit && (
                 <td>

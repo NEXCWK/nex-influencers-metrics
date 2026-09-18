@@ -466,7 +466,7 @@ export default function AdminAllPosts() {
                   <th>Plataforma</th>
                   <th>Formato</th>
                   <th>Data</th>
-                  <th>Alcance</th>
+                  <th>Visualizações</th>
                   <th>Curtidas</th>
                   <th>Acoes</th>
                 </tr>
@@ -514,7 +514,7 @@ export default function AdminAllPosts() {
                       <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
                       <td><FormatBadge type={post.post_type} /></td>
                       <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{formatDate(post.published_date || post.created_at)}</td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.reach} format={formatNum} /></td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.impressions} format={formatNum} /></td>
                       <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.likes} format={formatNum} /></td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
