@@ -35,6 +35,17 @@ function RoleBadge({ role }) {
       </span>
     );
   }
+  if (role === 'operacao') {
+    return (
+      <span className="badge badge-danger">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect x="3" y="11" width="18" height="10" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        Operação
+      </span>
+    );
+  }
   return (
     <span className="badge badge-success">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -141,12 +152,22 @@ export default function AdminUsers() {
       });
       const pwd = res.data?.default_password || 'nex2026';
       const u = res.data?.user;
+      const emailInfo = res.data?.email;
       setShowCreate(false);
+
+      let emailNote = '';
+      if (emailInfo) {
+        emailNote = emailInfo.sent
+          ? '\n\nConvite enviado por e-mail com sucesso!'
+          : `\n\nO convite por e-mail NÃO foi enviado (${emailInfo.reason || emailInfo.error || 'motivo desconhecido'}). Repasse o login/senha manualmente.`;
+      }
+
       alert(
         `Usuário criado com sucesso!\n\n` +
         `Login: ${u?.username}\n` +
         `Senha padrão: ${pwd}\n\n` +
-        `No primeiro acesso ele será obrigado a definir uma nova senha.`
+        `No primeiro acesso ele será obrigado a definir uma nova senha.` +
+        emailNote
       );
       fetchUsers();
     } catch (err) {
@@ -257,6 +278,7 @@ export default function AdminUsers() {
           <option value="">Todos os perfis</option>
           <option value="admin">Admin</option>
           <option value="influencer">Influenciador</option>
+          <option value="operacao">Operação</option>
         </select>
       </div>
 
@@ -369,13 +391,14 @@ export default function AdminUsers() {
               <input
                 type="text"
                 className="form-control"
-                placeholder="ex: jaque"
+                placeholder="ex: jaque  —  ou um e-mail: nome@nexcoworking.com.br"
                 value={form.username}
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 autoFocus
               />
               <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 4 }}>
-                Apenas minúsculas, números, ponto, hífen ou underline — sem espaços.
+                Minúsculas, números, ponto, hífen, underline ou @ — sem espaços. Se usar um
+                e-mail, o sistema tenta enviar um convite automaticamente para ele.
               </p>
             </div>
 
@@ -399,6 +422,7 @@ export default function AdminUsers() {
               >
                 <option value="influencer">Influenciador</option>
                 <option value="admin">Admin</option>
+                <option value="operacao">Operação (só vê Registro de Cupons)</option>
               </select>
             </div>
 

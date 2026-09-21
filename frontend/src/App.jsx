@@ -21,8 +21,19 @@ import Coupons from './pages/Coupons.jsx';
 import Navbar from './components/Navbar.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
-// Protected route: requires auth; redirects to /change-password if must_change_password
-function ProtectedRoute({ children, adminOnly = false }) {
+// Where each role lands after login / when denied a route it can't see.
+// 'operacao' is a narrow role that can only ever see Registro de Cupons.
+function homeForRole(role) {
+  if (role === 'admin') return '/admin';
+  if (role === 'operacao') return '/admin/coupon-partners';
+  return '/dashboard';
+}
+
+// Protected route: requires auth; redirects to /change-password if must_change_password.
+// `adminOnly` restricts to the 'admin' role (kept for existing routes).
+// `roles` restricts to an explicit list (e.g. ['admin', 'operacao']) when a
+// route — like Registro de Cupons — is shared by more than just admins.
+function ProtectedRoute({ children, adminOnly = false, roles }) {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -41,8 +52,9 @@ function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/change-password" replace />;
   }
 
-  if (adminOnly && user.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+  const allowedRoles = roles || (adminOnly ? ['admin'] : null);
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to={homeForRole(user.role)} replace />;
   }
 
   return (
@@ -71,8 +83,7 @@ function RootRedirect() {
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.must_change_password) return <Navigate to="/change-password" replace />;
-  if (user.role === 'admin') return <Navigate to="/admin" replace />;
-  return <Navigate to="/dashboard" replace />;
+  return <Navigate to={homeForRole(user.role)} replace />;
 }
 
 function AppRoutes() {
@@ -82,11 +93,11 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/change-password" element={<ChangePasswordRoute />} />
 
-      {/* Influencer routes */}
+      {/* Influencer routes — the narrow "operacao" role has no access here */}
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['admin', 'influencer']}>
             <Dashboard />
           </ProtectedRoute>
         }
@@ -94,7 +105,7 @@ function AppRoutes() {
       <Route
         path="/upload"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['admin', 'influencer']}>
             <Upload />
           </ProtectedRoute>
         }
@@ -112,7 +123,7 @@ function AppRoutes() {
       <Route
         path="/coupons"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute roles={['admin', 'influencer']}>
             <Coupons />
           </ProtectedRoute>
         }
@@ -170,7 +181,7 @@ function AppRoutes() {
       <Route
         path="/admin/coupon-partners"
         element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute roles={['admin', 'operacao']}>
             <AdminCouponPartners />
           </ProtectedRoute>
         }
@@ -199,7 +210,7 @@ function ChangePasswordRoute() {
 
   if (!user) return <Navigate to="/login" replace />;
   if (!user.must_change_password) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+    return <Navigate to={homeForRole(user.role)} replace />;
   }
 
   return <ChangePassword />;

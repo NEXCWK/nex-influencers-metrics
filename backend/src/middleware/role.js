@@ -21,4 +21,16 @@ function requireInfluencer(req, res, next) {
   next();
 }
 
-module.exports = { requireAdmin, requireInfluencer };
+/**
+ * Restricts access to 'admin' or 'operacao' roles — used for the "Registro
+ * de Cupons" master tab, which the narrow "Operação" role can also access
+ * (unlike every other /admin/* route, which stays admin-only).
+ */
+function requireAdminOrOperacao(req, res, next) {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'operacao')) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  next();
+}
+
+module.exports = { requireAdmin, requireInfluencer, requireAdminOrOperacao };

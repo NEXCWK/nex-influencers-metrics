@@ -33,6 +33,8 @@ export default function ChangePassword() {
 
       if (user?.role === 'admin') {
         navigate('/admin', { replace: true });
+      } else if (user?.role === 'operacao') {
+        navigate('/admin/coupon-partners', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }

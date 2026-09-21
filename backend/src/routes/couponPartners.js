@@ -4,16 +4,17 @@ const express = require('express');
 
 const supabase = require('../db/supabase');
 const authenticate = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/role');
+const { requireAdminOrOperacao } = require('../middleware/role');
 const { PRODUCTS, PRODUCT_LIST, computeTotals } = require('../services/couponPricing');
 const { renderCouponSaleEmailHtml } = require('../services/couponSaleEmail');
 const emailSender = require('../services/emailSender');
 
 const router = express.Router();
 
-// "Registro de Cupons" is an admin-only master tab — port of the
-// nexcupominflu (Lovable) system, ported into our own auth/DB.
-router.use(authenticate, requireAdmin);
+// "Registro de Cupons" is a master tab open to 'admin' AND the narrow
+// 'operacao' role (which can access nothing else in the system) — port of
+// the nexcupominflu (Lovable) system, into our own auth/DB.
+router.use(authenticate, requireAdminOrOperacao);
 
 function getSaleRecipients() {
   const fromEnv = (process.env.COUPON_SALE_RECIPIENTS || '')

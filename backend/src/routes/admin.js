@@ -9,6 +9,8 @@ const { requireAdmin } = require('../middleware/role');
 const metricsService = require('../services/metrics');
 const storage = require('../services/storage');
 const ai = require('../services/ai');
+const emailSender = require('../services/emailSender');
+const { renderUserInviteEmailHtml } = require('../services/userInviteEmail');
 
 const router = express.Router();
 
@@ -705,14 +707,17 @@ router.post('/users', async (req, res, next) => {
   try {
     const rawUsername = (req.body.username || '').trim().toLowerCase();
     const displayName = (req.body.display_name || '').trim() || rawUsername;
-    const role = req.body.role === 'admin' ? 'admin' : 'influencer';
+    const ALLOWED_ROLES = ['admin', 'influencer', 'operacao'];
+    const role = ALLOWED_ROLES.includes(req.body.role) ? req.body.role : 'influencer';
 
     if (!rawUsername) {
       return res.status(400).json({ error: 'O nome de usuário é obrigatório' });
     }
-    if (!/^[a-z0-9._-]+$/.test(rawUsername)) {
+    // Allows a plain username OR an e-mail address as login (used for the
+    // "operacao" role, whose accounts are invited by e-mail).
+    if (!/^[a-z0-9._@-]+$/.test(rawUsername)) {
       return res.status(400).json({
-        error: 'Use apenas letras minúsculas, números, ponto, hífen ou underline (sem espaços)',
+        error: 'Use apenas letras minúsculas, números, ponto, hífen, underline ou @ (sem espaços)',
       });
     }
 
@@ -751,7 +756,31 @@ router.post('/users', async (req, res, next) => {
       return res.status(500).json({ error: 'Falha ao criar o usuário' });
     }
 
-    return res.status(201).json({ user: created, default_password: DEFAULT_PASSWORD });
+    // Best-effort invite e-mail — only when the login itself is an e-mail
+    // address (the pattern used for the "operacao" role). The account is
+    // created regardless of whether the e-mail goes out.
+    let emailResult = null;
+    if (/^[^@]+@[^@]+\.[^@]+$/.test(rawUsername)) {
+      try {
+        const html = renderUserInviteEmailHtml({
+          displayName,
+          username: rawUsername,
+          password: DEFAULT_PASSWORD,
+          role,
+          appUrl: process.env.FRONTEND_URL || '',
+        });
+        emailResult = await emailSender.sendEmail({
+          to: [rawUsername],
+          subject: 'Seu acesso ao Nex Influencer Metrics',
+          html,
+        });
+      } catch (emailErr) {
+        console.error('User invite email failed:', emailErr.message);
+        emailResult = { sent: false, error: emailErr.message };
+      }
+    }
+
+    return res.status(201).json({ user: created, default_password: DEFAULT_PASSWORD, email: emailResult });
   } catch (err) {
     next(err);
   }

@@ -29,6 +29,12 @@ const adminLinks = [
   { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
 ];
 
+// "Operação": papel restrito, enxerga apenas a aba Registro de Cupons no
+// menu principal (o link "Perfil" continua disponível no menu do avatar).
+const operacaoLinks = [
+  { to: '/admin/coupon-partners', label: 'Registro de Cupons', icon: <IconKey size={15} />, end: true },
+];
+
 function IconChevronUp({ size = 12 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -60,7 +66,11 @@ export default function Navbar() {
     navigate('/login');
   };
 
-  const links = user?.role === 'admin' ? adminLinks : influencerLinks;
+  const links = user?.role === 'admin'
+    ? adminLinks
+    : user?.role === 'operacao'
+      ? operacaoLinks
+      : influencerLinks;
 
   return (
     <nav className={styles.sidebar}>
@@ -126,7 +136,7 @@ export default function Navbar() {
               {user?.display_name || user?.username}
             </span>
             <span className={styles.userRole}>
-              {user?.role === 'admin' ? 'Administrador' : 'Influenciador'}
+              {user?.role === 'admin' ? 'Administrador' : user?.role === 'operacao' ? 'Operação' : 'Influenciador'}
             </span>
           </div>
           <span className={`${styles.chevron} ${menuOpen ? styles.chevronOpen : ''}`}>
