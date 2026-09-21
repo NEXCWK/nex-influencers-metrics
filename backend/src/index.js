@@ -15,6 +15,7 @@ const adminRouter = require('./routes/admin');
 const profileRouter = require('./routes/profile');
 const membersRouter = require('./routes/members');
 const couponsRouter = require('./routes/coupons');
+const couponPartnersRouter = require('./routes/couponPartners');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/admin', adminRouter);
 app.use('/profile', profileRouter);
 app.use('/members', membersRouter);
 app.use('/coupons', couponsRouter);
+app.use('/admin/coupon-partners', couponPartnersRouter);
 
 // ---------------------------------------------------------------------------
 // 404 handler
