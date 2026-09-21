@@ -11,7 +11,7 @@ const emailSender = require('../services/emailSender');
 
 const router = express.Router();
 
-// "Cupons Access Pass" is an admin-only master tab — port of the
+// "Registro de Cupons" is an admin-only master tab — port of the
 // nexcupominflu (Lovable) system, ported into our own auth/DB.
 router.use(authenticate, requireAdmin);
 

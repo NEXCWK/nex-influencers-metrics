@@ -78,7 +78,7 @@ export default function AdminCouponPartners() {
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Cupons Access Pass</h1>
+        <h1 className="page-title">Registro de Cupons</h1>
         <button className="btn btn-secondary" onClick={fetchAll}>Atualizar</button>
       </div>
 
