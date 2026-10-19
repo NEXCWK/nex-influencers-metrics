@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api.js';
 import { IconAlert, IconPencil, IconLock } from './Icons.jsx';
+import { FormatBadge } from './PostBadges.jsx';
 import styles from './MetricConfirmModal.module.css';
 
 const METRIC_FIELDS = [
   { key: 'reach', label: 'Alcance (Contas alcançadas)' },
-  { key: 'impressions', label: 'Visualizações' },
+  { key: 'impressions', label: 'Visualizações', feedOnly: true },
   { key: 'likes', label: 'Curtidas' },
   { key: 'comments', label: 'Comentários' },
   { key: 'shares', label: 'Compartilhamentos' },
-  { key: 'saves', label: 'Salvamentos' },
-  { key: 'plays', label: 'Reproduções (vídeo)' },
-  { key: 'engagement_rate', label: 'Taxa de Engajamento (%)' },
+  { key: 'saves', label: 'Salvamentos', feedOnly: true },
+  { key: 'plays', label: 'Reproduções (vídeo)', feedOnly: true },
+  { key: 'engagement_rate', label: 'Taxa de Engajamento (%)', feedOnly: true },
   { key: 'profile_visits', label: 'Visitas ao Perfil' },
   { key: 'link_clicks', label: 'Cliques no Link' },
 ];
@@ -39,6 +40,9 @@ function ConfidenceBadge({ confidence }) {
  *  isOpen: bool
  *  metrics: object with metric values extracted by AI (including optional .extra{})
  *  postId: string/number
+ *  postType: 'feed' | 'story' — detected format; hides fields that don't
+ *    apply to that format (e.g. Visualizações/Plays/Salvamentos for a story)
+ *  progressLabel: optional string shown above the title (e.g. "Post 2 de 5")
  *  confidence: 'high' | 'medium' | 'low'
  *  notes: string (AI notes/observations)
  *  aiError: string
@@ -49,6 +53,8 @@ export default function MetricConfirmModal({
   isOpen,
   metrics = {},
   postId,
+  postType,
+  progressLabel,
   confidence,
   notes,
   aiError,
@@ -60,6 +66,8 @@ export default function MetricConfirmModal({
   const [extraKeys, setExtraKeys] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const visibleFields = METRIC_FIELDS.filter((f) => postType !== 'story' || !f.feedOnly);
 
   useEffect(() => {
     if (isOpen && metrics) {
@@ -150,12 +158,27 @@ export default function MetricConfirmModal({
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-card">
         <div className="modal-header">
-          <h2 className="modal-title">Confirmar Métricas Extraídas</h2>
+          <div>
+            {progressLabel && (
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontFamily: 'var(--font)', marginBottom: 2 }}>
+                {progressLabel}
+              </div>
+            )}
+            <h2 className="modal-title">Confirmar Métricas Extraídas</h2>
+          </div>
           <button className="modal-close" onClick={onClose} aria-label="Fechar">×</button>
         </div>
 
-        {/* Confidence */}
+        {/* Format detected + confidence */}
         <div className={styles.confidenceRow}>
+          {postType && (
+            <>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font)' }}>
+                Formato detectado:
+              </span>
+              <FormatBadge type={postType} />
+            </>
+          )}
           <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontFamily: 'var(--font)' }}>
             Confiança da extração:
           </span>
@@ -209,7 +232,7 @@ export default function MetricConfirmModal({
 
         {/* Standard metrics grid */}
         <div className={styles.metricsGrid}>
-          {METRIC_FIELDS.map(({ key, label }) => (
+          {visibleFields.map(({ key, label }) => (
             <div key={key} className="form-group" style={{ marginBottom: 12 }}>
               <label className="form-label">{label}</label>
               <input

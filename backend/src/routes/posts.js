@@ -133,9 +133,22 @@ router.get('/', async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /posts/upload — upload a screenshot and extract metrics via AI
+// POST /posts/upload — upload prints; EACH print becomes its own post.
+// The AI classifies each print as feed or story from its visual layout and
+// extracts that print's own metrics (no consolidation across prints — every
+// print is treated as an independent post, matching how the influencer
+// actually generates them, one screenshot per publication).
 // ---------------------------------------------------------------------------
 const ALLOWED_PLATFORMS = ['instagram', 'tiktok', 'youtube', 'linkedin'];
+
+const FORMAT_LABEL = { feed: 'Feed', story: 'Story' };
+
+function autoTitle(postType, publishedDate) {
+  const d = new Date(`${publishedDate}T12:00:00`);
+  const label = FORMAT_LABEL[postType] || 'Post';
+  const dateStr = isNaN(d) ? '' : ` — ${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  return `${label}${dateStr}`;
+}
 
 router.post(
   '/upload',
@@ -143,23 +156,18 @@ router.post(
   upload.array('images', 10),
   async (req, res, next) => {
     try {
-      // Validate file presence — one post may include up to 10 prints
+      // Validate file presence — one upload batch may include up to 10 prints,
+      // each becoming its own post.
       const files = req.files || [];
       if (files.length === 0) {
         return res.status(400).json({ error: 'At least one image is required (field name: images)' });
       }
       if (files.length > 10) {
-        return res.status(400).json({ error: 'A post can have at most 10 prints' });
+        return res.status(400).json({ error: 'You can upload at most 10 prints at once' });
       }
 
-      const { title, published_at, platform } = req.body;
-      const post_type = req.body.post_type === 'story' ? 'story' : 'feed';
-      const post_url = (req.body.post_url || '').trim() || null;
+      const { published_at, platform } = req.body;
 
-      // Validate required fields
-      if (!title || !title.trim()) {
-        return res.status(400).json({ error: 'title is required' });
-      }
       if (!published_at) {
         return res.status(400).json({ error: 'published_at is required (YYYY-MM-DD)' });
       }
@@ -171,83 +179,20 @@ router.post(
           .status(400)
           .json({ error: `platform must be one of: ${ALLOWED_PLATFORMS.join(', ')}` });
       }
-      if (post_url && !/^https?:\/\/\S+$/i.test(post_url)) {
-        return res.status(400).json({ error: 'post_url must be a valid http(s) URL' });
-      }
 
-      // Validate date format
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (!dateRegex.test(published_at)) {
         return res.status(400).json({ error: 'published_at must be in YYYY-MM-DD format' });
       }
 
-      const postId = uuidv4();
       const userId = req.user.id;
       const publishedDate = new Date(published_at);
       const year = publishedDate.getUTCFullYear();
       const month = publishedDate.getUTCMonth() + 1;
 
-      // 1. Create post record (without image_url yet)
-      const postRecord = {
-        id: postId,
-        user_id: userId,
-        title: title.trim(),
-        platform,
-        post_type,
-        post_url,
-        published_at,
-        confirmed_by_user: false,
-      };
-
-      let { error: insertError } = await supabase.from('posts').insert(postRecord);
-
-      // Graceful fallback: if post_type/post_url columns don't exist yet,
-      // retry without them. Fix: run migrations 003_post_type.sql / 005_post_url.sql.
-      if (insertError && /post_url/i.test(insertError.message)) {
-        console.warn('post_url column missing — retrying insert without it.');
-        const { post_url: _droppedUrl, ...withoutUrl } = postRecord;
-        const retry = await supabase.from('posts').insert(withoutUrl);
-        insertError = retry.error;
-      }
-      if (insertError && /post_type/i.test(insertError.message)) {
-        console.warn('post_type column missing — retrying insert without it.');
-        const { post_type: _dropped, post_url: _droppedUrl2, ...withoutType } = postRecord;
-        const retry = await supabase.from('posts').insert(withoutType);
-        insertError = retry.error;
-      }
-
-      if (insertError) {
-        console.error('Post insert error:', insertError.message);
-        return res.status(500).json({ error: 'Failed to create post record' });
-      }
-
-      // 2. Upload every print to Supabase Storage (grouped under the post folder).
-      // Done in parallel instead of one-by-one — with up to 10 prints per post,
-      // a sequential loop could take long enough to tip the request over the
-      // client's timeout, especially when several posts are uploaded back to
-      // back and the server is still finishing a previous one.
-      let imagePaths;
-      try {
-        imagePaths = await Promise.all(
-          files.map((f, i) =>
-            storage.uploadImage(f.buffer, f.mimetype, userId, postId, year, month, extFromMime(f.mimetype), i)
-          )
-        );
-      } catch (uploadErr) {
-        // Clean up orphaned post on upload failure
-        await supabase.from('posts').delete().eq('id', postId);
-        console.error('Storage upload error:', uploadErr.message);
-        return res.status(500).json({ error: `Failed to upload images: ${uploadErr.message}` });
-      }
-
-      // 3. Update post with the primary print path (first print = thumbnail)
-      await supabase
-        .from('posts')
-        .update({ image_url: imagePaths[0] })
-        .eq('id', postId);
-
-      // 4. Extract & consolidate metrics from ALL prints with Claude AI
-      let aiResult = null;
+      // 1. Classify + extract ALL prints in one AI call (cost-efficient),
+      // each image treated as an independent post — never consolidated.
+      let batchResults = null;
       let extractionFailed = false;
       let aiError = null;
 
@@ -257,11 +202,68 @@ router.post(
         console.error('AI extraction skipped:', aiError);
       } else {
         try {
-          aiResult = await ai.extractMetricsFromImages(
+          batchResults = await ai.classifyAndExtractBatch(
             files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }))
           );
+        } catch (aiErr) {
+          console.error('AI batch classify/extract error:', aiErr.message);
+          extractionFailed = true;
+          aiError = aiErr.message;
+        }
+      }
 
-          // Store raw AI response on the post (best-effort — column may not exist yet)
+      const metricFields = [
+        'reach', 'impressions', 'likes', 'comments', 'shares',
+        'saves', 'plays', 'engagement_rate', 'profile_visits', 'link_clicks',
+      ];
+
+      // 2. Create one post per print, upload its single image, store the AI
+      // result for that print. Done sequentially per post (not all prints in
+      // parallel) so a storage failure on print N only orphans that one post.
+      const createdPosts = [];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const aiResult = batchResults ? batchResults[i] : null;
+        const post_type = aiResult?.post_type === 'story' ? 'story' : 'feed';
+        const postId = uuidv4();
+
+        const postRecord = {
+          id: postId,
+          user_id: userId,
+          title: autoTitle(post_type, published_at),
+          platform,
+          post_type,
+          published_at,
+          confirmed_by_user: false,
+        };
+
+        let { error: insertError } = await supabase.from('posts').insert(postRecord);
+
+        // Graceful fallback if post_type column doesn't exist yet.
+        if (insertError && /post_type/i.test(insertError.message)) {
+          console.warn('post_type column missing — retrying insert without it.');
+          const { post_type: _dropped, ...withoutType } = postRecord;
+          const retry = await supabase.from('posts').insert(withoutType);
+          insertError = retry.error;
+        }
+
+        if (insertError) {
+          console.error('Post insert error:', insertError.message);
+          continue; // skip this print, keep processing the rest of the batch
+        }
+
+        let imagePath;
+        try {
+          imagePath = await storage.uploadImage(f.buffer, f.mimetype, userId, postId, year, month, extFromMime(f.mimetype), 0);
+        } catch (uploadErr) {
+          await supabase.from('posts').delete().eq('id', postId);
+          console.error('Storage upload error:', uploadErr.message);
+          continue;
+        }
+
+        await supabase.from('posts').update({ image_url: imagePath }).eq('id', postId);
+
+        if (aiResult) {
           const { error: rawSaveErr } = await supabase
             .from('posts')
             .update({ ai_raw_response: aiResult })
@@ -269,30 +271,27 @@ router.post(
           if (rawSaveErr && !/ai_raw_response/i.test(rawSaveErr.message)) {
             console.warn('ai_raw_response update warning:', rawSaveErr.message);
           }
-        } catch (aiErr) {
-          console.error('AI extraction error:', aiErr.message);
-          extractionFailed = true;
-          aiError = aiErr.message;
         }
+
+        const allNull = extractionFailed || !aiResult || metricFields.every((f2) => aiResult[f2] == null);
+
+        createdPosts.push({
+          post_id: postId,
+          title: postRecord.title,
+          post_type,
+          metrics_extracted: extractionFailed ? null : aiResult,
+          confidence: aiResult ? aiResult.confidence : null,
+          notes: aiResult ? aiResult.notes : null,
+          needs_manual_entry: allNull,
+        });
       }
 
-      // 5. Determine if all metric fields are null (needs manual entry)
-      const metricFields = [
-        'reach', 'impressions', 'likes', 'comments', 'shares',
-        'saves', 'plays', 'engagement_rate', 'profile_visits', 'link_clicks',
-      ];
-
-      const allNull =
-        extractionFailed ||
-        !aiResult ||
-        metricFields.every((f) => aiResult[f] == null);
+      if (createdPosts.length === 0) {
+        return res.status(500).json({ error: 'Failed to create any post from this batch' });
+      }
 
       return res.status(201).json({
-        post_id: postId,
-        metrics_extracted: extractionFailed ? null : aiResult,
-        confidence: aiResult ? aiResult.confidence : null,
-        notes: aiResult ? aiResult.notes : null,
-        needs_manual_entry: allNull,
+        posts: createdPosts,
         ai_error: aiError,
       });
     } catch (err) {

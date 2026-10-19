@@ -21,27 +21,21 @@ let _nextId = 0;
 export default function Upload() {
   const navigate = useNavigate();
 
-  // Post-level fields (one post)
-  const [title, setTitle] = useState('');
+  // Shared metadata for the whole batch (not visible in a screenshot).
   const [date, setDate] = useState(TODAY);
   const [platform, setPlatform] = useState('instagram');
-  const [postType, setPostType] = useState('feed');
-  const [postUrl, setPostUrl] = useState('');
 
-  // Prints for this single post
+  // Each print becomes its own post — no grouping anymore.
   const [prints, setPrints] = useState([]); // [{ localId, file, preview }]
 
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Confirmation modal
-  const [modalOpen, setModalOpen] = useState(false);
-  const [extractedMetrics, setExtractedMetrics] = useState(null);
-  const [postId, setPostId] = useState(null);
-  const [confidence, setConfidence] = useState('medium');
-  const [aiNotes, setAiNotes] = useState('');
-  const [aiError, setAiError] = useState('');
+  // Confirmation queue: one post at a time, in the order the AI returned them.
+  const [queue, setQueue] = useState([]); // [{ post_id, title, post_type, metrics_extracted, confidence, notes, needs_manual_entry }]
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [batchAiError, setBatchAiError] = useState('');
 
   // ── Dropzone ─────────────────────────────────────────────────────────────
 
@@ -50,7 +44,7 @@ export default function Upload() {
     setPrints((prev) => {
       const remaining = MAX_PRINTS - prev.length;
       if (remaining <= 0) {
-        setUploadError(`Máximo de ${MAX_PRINTS} prints por post.`);
+        setUploadError(`Máximo de ${MAX_PRINTS} prints por vez.`);
         return prev;
       }
       const added = accepted.slice(0, remaining).map((file) => {
@@ -84,15 +78,7 @@ export default function Upload() {
     setUploadError('');
 
     if (prints.length === 0) {
-      setUploadError('Adicione pelo menos um print do post.');
-      return;
-    }
-    if (!title.trim()) {
-      setUploadError('Informe um título para o post.');
-      return;
-    }
-    if (postUrl.trim() && !/^https?:\/\/\S+$/i.test(postUrl.trim())) {
-      setUploadError('A URL do post deve começar com http:// ou https://');
+      setUploadError('Adicione pelo menos um print.');
       return;
     }
 
@@ -100,35 +86,33 @@ export default function Upload() {
     try {
       const formData = new FormData();
       prints.forEach((p) => formData.append('images', p.file));
-      formData.append('title', title.trim());
       formData.append('published_at', date);
       formData.append('platform', platform);
-      formData.append('post_type', postType);
-      if (postUrl.trim()) formData.append('post_url', postUrl.trim());
 
       const res = await api.post('/posts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 150000, // headroom: parallel storage uploads + bounded AI extraction (60s)
+        timeout: 150000, // headroom: storage uploads + bounded AI extraction (90s)
       });
 
-      const { post_id, metrics_extracted, confidence: conf, notes, ai_error } = res.data;
-      setPostId(post_id);
-      setExtractedMetrics(metrics_extracted || {});
-      setConfidence(conf || 'medium');
-      setAiNotes(notes || '');
-      setAiError(ai_error || '');
-      setModalOpen(true);
+      const { posts: createdPosts, ai_error } = res.data;
+      if (!createdPosts || createdPosts.length === 0) {
+        setUploadError('Nenhum post foi criado. Tente novamente.');
+        return;
+      }
+      setBatchAiError(ai_error || '');
+      setQueue(createdPosts);
+      setQueueIndex(0);
     } catch (err) {
       if (err.response) {
         // Server answered with an error — safe to show and retry.
-        setUploadError(err.response.data?.error || 'Erro ao enviar o post. Tente novamente.');
+        setUploadError(err.response.data?.error || 'Erro ao enviar os prints. Tente novamente.');
       } else {
         // No response reached the browser (timeout, connection dropped, etc.):
-        // the server may have finished creating the post anyway. Don't let the
-        // user blindly resubmit and risk a duplicate.
+        // the server may have finished creating posts anyway. Don't let the
+        // user blindly resubmit and risk duplicates.
         setUploadError(
           'A conexão demorou demais ou foi interrompida antes da resposta chegar. ' +
-          'O post PODE já ter sido criado no servidor — confira no seu Dashboard antes ' +
+          'Os posts PODEM já ter sido criados no servidor — confira no seu Dashboard antes ' +
           'de enviar novamente.'
         );
       }
@@ -137,11 +121,34 @@ export default function Upload() {
     }
   };
 
-  const handleConfirm = () => {
-    setModalOpen(false);
-    setSuccessMsg('Post enviado e métricas confirmadas com sucesso!');
-    prints.forEach((p) => URL.revokeObjectURL(p.preview));
-    setTimeout(() => navigate('/dashboard'), 2000);
+  const currentPost = queue[queueIndex] || null;
+
+  const handleConfirmOne = () => {
+    if (queueIndex + 1 < queue.length) {
+      setQueueIndex((i) => i + 1);
+    } else {
+      // Batch finished
+      setQueue([]);
+      setQueueIndex(0);
+      prints.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPrints([]);
+      setSuccessMsg(`${queue.length} post${queue.length !== 1 ? 's' : ''} enviado${queue.length !== 1 ? 's' : ''} e confirmado${queue.length !== 1 ? 's' : ''} com sucesso!`);
+      setTimeout(() => navigate('/dashboard'), 2000);
+    }
+  };
+
+  const handleCloseModal = () => {
+    // Closing mid-queue just skips that post's confirmation for now — it
+    // stays saved as pending (needs_manual_entry/unconfirmed) and can be
+    // confirmed later from the Dashboard, same as a normal unconfirmed post.
+    if (queueIndex + 1 < queue.length) {
+      setQueueIndex((i) => i + 1);
+    } else {
+      setQueue([]);
+      setQueueIndex(0);
+      prints.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPrints([]);
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -158,27 +165,23 @@ export default function Upload() {
         </div>
       )}
 
+      {batchAiError && queue.length === 0 && (
+        <div className="alert alert-error" style={{ marginBottom: 24 }}>
+          A IA não conseguiu classificar os prints automaticamente: {batchAiError}. Preencha as métricas manualmente em cada post.
+        </div>
+      )}
+
       <div className={styles.uploadLayout}>
-        {/* Left: post info form */}
+        {/* Left: shared batch info */}
         <div className={styles.formSection}>
           <div className="card">
-            <h2 className="section-title" style={{ marginBottom: 20 }}>Informações do Post</h2>
+            <h2 className="section-title" style={{ marginBottom: 20 }}>Informações do Lote</h2>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: -12, marginBottom: 16 }}>
+              Cada print vira um post separado. A IA identifica sozinha se é Feed ou Story e lê as métricas de cada um.
+            </p>
 
             <form onSubmit={handleSubmit} noValidate>
               {uploadError && <div className="alert alert-error">{uploadError}</div>}
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="title">Título do post</label>
-                <input
-                  id="title"
-                  type="text"
-                  className="form-control"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Post sobre coworking em SP"
-                  disabled={uploading}
-                />
-              </div>
 
               <div className="form-group">
                 <label className="form-label" htmlFor="platform">Plataforma</label>
@@ -196,20 +199,6 @@ export default function Upload() {
               </div>
 
               <div className="form-group">
-                <label className="form-label" htmlFor="postType">Tipo de publicação</label>
-                <select
-                  id="postType"
-                  className="form-control"
-                  value={postType}
-                  onChange={(e) => setPostType(e.target.value)}
-                  disabled={uploading}
-                >
-                  <option value="feed">Post (Feed)</option>
-                  <option value="story">Story</option>
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label className="form-label" htmlFor="date">Data de publicação</label>
                 <input
                   id="date"
@@ -217,19 +206,6 @@ export default function Upload() {
                   className="form-control"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  disabled={uploading}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="postUrl">Link do post (opcional)</label>
-                <input
-                  id="postUrl"
-                  type="url"
-                  className="form-control"
-                  value={postUrl}
-                  onChange={(e) => setPostUrl(e.target.value)}
-                  placeholder="https://www.instagram.com/p/..."
                   disabled={uploading}
                 />
               </div>
@@ -252,7 +228,7 @@ export default function Upload() {
 
               {uploading && (
                 <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', marginTop: 10, fontFamily: 'var(--font)' }}>
-                  A IA está lendo todos os prints e consolidando as métricas. Aguarde.
+                  A IA está identificando o formato (Feed/Story) e lendo as métricas de cada print. Aguarde.
                 </p>
               )}
             </form>
@@ -272,7 +248,7 @@ export default function Upload() {
                 {isDragActive ? 'Solte os prints aqui' : 'Arraste os prints ou clique para selecionar'}
               </p>
               <p className={styles.dropHint}>
-                Vários prints do mesmo post — até {MAX_PRINTS} — JPG, PNG, WEBP — 10MB cada
+                Cada print = um post — até {MAX_PRINTS} de uma vez — JPG, PNG, WEBP — 10MB cada
               </p>
             </div>
           )}
@@ -280,7 +256,7 @@ export default function Upload() {
           {prints.length > 0 && (
             <>
               <div className={styles.printCount}>
-                {prints.length}/{MAX_PRINTS} prints adicionados
+                {prints.length}/{MAX_PRINTS} prints adicionados ({prints.length} post{prints.length !== 1 ? 's' : ''} será{prints.length !== 1 ? 'ão' : ''} criado{prints.length !== 1 ? 's' : ''})
               </div>
               <div className={styles.thumbGrid}>
                 {prints.map((p, idx) => (
@@ -305,16 +281,18 @@ export default function Upload() {
         </div>
       </div>
 
-      {/* Metric confirmation modal (consolidated metrics for the post) */}
+      {/* Metric confirmation modal — one post at a time through the queue */}
       <MetricConfirmModal
-        isOpen={modalOpen}
-        metrics={extractedMetrics}
-        postId={postId}
-        confidence={confidence}
-        notes={aiNotes}
-        aiError={aiError}
-        onConfirm={handleConfirm}
-        onClose={() => setModalOpen(false)}
+        isOpen={!!currentPost}
+        metrics={currentPost?.metrics_extracted || {}}
+        postId={currentPost?.post_id}
+        postType={currentPost?.post_type}
+        confidence={currentPost?.confidence}
+        notes={currentPost?.notes}
+        aiError={!currentPost?.metrics_extracted && batchAiError ? batchAiError : ''}
+        progressLabel={queue.length > 1 ? `Post ${queueIndex + 1} de ${queue.length} — ${currentPost?.title || ''}` : currentPost?.title}
+        onConfirm={handleConfirmOne}
+        onClose={handleCloseModal}
       />
     </div>
   );

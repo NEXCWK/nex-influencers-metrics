@@ -99,9 +99,13 @@ function PostImageModal({ post, onClose }) {
             ['Curtidas', post.likes],
             ['Comentarios', post.comments],
             ['Compartilhamentos', post.shares],
-            ['Visualizacoes', post.impressions],
-            ['Plays', post.plays],
-            ['Salvamentos', post.saves],
+            // Visualizações/Plays/Salvamentos só existem em posts de Feed —
+            // não aparecem (nem zerados) no detalhamento de um Story.
+            ...(post.post_type === 'story' ? [] : [
+              ['Visualizacoes', post.impressions],
+              ['Plays', post.plays],
+              ['Salvamentos', post.saves],
+            ]),
             ['Visitas ao Perfil', post.profile_visits],
             ['Cliques no Link', post.link_clicks],
           ].map(([label, val]) => (

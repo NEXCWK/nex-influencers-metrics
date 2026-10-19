@@ -200,6 +200,153 @@ async function extractMetrics(imageBuffer, mimeType) {
   return extractMetricsFromImages([{ buffer: imageBuffer, mimeType }]);
 }
 
+// ---------------------------------------------------------------------------
+// classifyAndExtractBatch — NEW upload flow: every print is its OWN post.
+// Unlike extractMetricsFromImages above (kept as-is for reprocessing old
+// multi-print posts), this does NOT consolidate across images. It classifies
+// each image independently as "feed" or "story" from its visual layout, and
+// extracts that image's own metrics only. One API call covers the whole
+// batch for cost efficiency, but the model is explicitly told never to mix
+// data between images.
+// ---------------------------------------------------------------------------
+function buildBatchPrompt(imageCount) {
+  return `Você é um sistema de classificação e extração de métricas de redes sociais.
+
+Você recebeu ${imageCount} imagem${imageCount !== 1 ? 's' : ''} nesta mensagem. CADA imagem é um
+post ou story DIFERENTE e INDEPENDENTE — não são prints do mesmo post. NUNCA misture ou
+some dados entre imagens diferentes. Para cada imagem, faça duas coisas:
+
+1) CLASSIFIQUE o formato pelo layout visual:
+   - "story": tela costuma ter tira/miniaturas de stories no topo, cabeçalho
+     "Overview"/"Visão geral", um gráfico circular ("donut"/anel) de
+     Visualizações, e/ou um painel "Interações" com lista de métricas.
+   - "feed": tela costuma ter cabeçalho "Post insights"/"Informações do post",
+     a imagem única do post, ícones de curtida/comentário/compartilhar/salvar
+     logo abaixo dela, e abas tipo "Overview/Engagement/Audience".
+   Use o layout — não adivinhe pelo conteúdo da foto em si.
+
+2) EXTRAIA as métricas APENAS dessa imagem (nunca de outra imagem da mensagem).
+
+MAPEAMENTO OBRIGATÓRIO (terminologia atual do Instagram/Meta) — siga à risca:
+- "reach" (Alcance) = o número rotulado "Contas alcançadas" quando existir.
+  EM STORY: se a tela só mostra "Views"/"Visualizações" como número principal
+  (ex: tela "Overview" do story com um círculo/anel e o rótulo "Views" no
+  centro, SEM "Contas alcançadas" em lugar nenhum), esse "Views" do story
+  conta como reach — é a métrica de alcance simplificada do story.
+- "impressions" (Visualizações) = o número "Views"/"Visualizações" de um
+  FEED post (ex: card "Summary" com Views/Viewers/Profile visits/Follows,
+  tela "Post insights"). NUNCA preencha impressions em uma imagem já
+  classificada como "story" — deixe sempre null nesse caso (o "Views" do
+  story já foi usado como reach, acima).
+- NUNCA troque "Visualizações"/"Views" de FEED por "Contas alcançadas": são
+  métricas distintas nesse formato.
+- "plays" = reproduções de vídeo/reel em FEED, quando rotulado explicitamente
+  "Reproduções" (separado de "Visualizações"). Em story, deixe null.
+- Em plataformas que ainda usam o rótulo "Impressões" (feed), trate como
+  impressions.
+- "profile_visits" (Visitas ao perfil) — sempre que aparecer, em qualquer
+  formato. Variações: "Visitas ao perfil", "Perfil visitado", "Visualizações
+  do perfil", "Toques no perfil", "Profile visits", "Profile activity".
+- "likes" = ícone de coração / "Curtidas" / "Likes".
+- "comments" = ícone de balão / "Comentários" / "Comments" / (em story,
+  "Respostas"/"Replies" contam como comments).
+- "shares" = ícone de reenvio/repost / "Compartilhamentos" / "Shares"/"Reposts".
+- "saves" = ícone de marcador/bookmark / "Salvamentos" / "Saves" — SÓ existe em
+  feed; em story deixe null.
+- "link_clicks" = "Cliques no link"/"Toques no link"/"Link clicks".
+- "engagement_rate" = taxa de engajamento em %, SÓ existe em feed; em story
+  deixe null.
+
+PAINEL "INTERAÇÕES" DO STORY (quando existir — círculo/donut com o total de
+"Interações" no centro, seguido de uma lista de valores): leia CADA linha da
+lista e mapeie Curtidas→likes, Respostas→comments, Compartilhamentos→shares,
+Cliques no link→link_clicks, Visitas ao perfil→profile_visits. O número
+central "Interações" (total) vai em extra.interacoes — NÃO confunda com
+"Curtidas" (uma linha específica, quase sempre menor que o total).
+
+Extraia TODAS as métricas visíveis que não se encaixem nos campos padrão (ex:
+"Não-seguidores alcançados", "Viewers", "Follows", "Tempo médio de
+visualização", "Seguidores %") no objeto "extra", com chaves em snake_case.
+Converta percentuais para número decimal (4,5% → 4.5) e remova formatação de
+milhar (12.157 → 12157). Só retorne null para uma métrica que realmente não
+aparece naquela imagem.
+
+Retorne SOMENTE um JSON válido, sem markdown, sem explicação, no formato:
+
+{
+  "results": [
+    {
+      "post_type": "feed" ou "story",
+      "reach": null,
+      "impressions": null,
+      "likes": null,
+      "comments": null,
+      "shares": null,
+      "saves": null,
+      "plays": null,
+      "engagement_rate": null,
+      "profile_visits": null,
+      "link_clicks": null,
+      "extra": {},
+      "platform_detected": null,
+      "confidence": "high|medium|low",
+      "notes": ""
+    }
+  ]
+}
+
+O array "results" DEVE ter exatamente ${imageCount} item${imageCount !== 1 ? 's' : ''},
+na MESMA ORDEM das imagens recebidas (o item 1 corresponde ao Print 1, etc.).`;
+}
+
+/**
+ * @param {Array<{buffer: Buffer, mimeType: string}>} images
+ * @returns {Promise<Array<Object>>} One independent classification+extraction
+ *   result per image, in the same order as `images`.
+ */
+async function classifyAndExtractBatch(images) {
+  if (!Array.isArray(images) || images.length === 0) {
+    throw new Error('classifyAndExtractBatch requires at least one image');
+  }
+
+  const imageBlocks = images.flatMap(({ buffer, mimeType }, i) => [
+    { type: 'text', text: `Print ${i + 1} de ${images.length} (post/story independente):` },
+    {
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: SUPPORTED_MIME_TYPES.includes(mimeType) ? mimeType : 'image/jpeg',
+        data: buffer.toString('base64'),
+      },
+    },
+  ]);
+
+  const message = await client.messages.create(
+    {
+      model: MODEL,
+      max_tokens: Math.min(1024 * images.length + 1024, 8192),
+      messages: [
+        {
+          role: 'user',
+          content: [...imageBlocks, { type: 'text', text: buildBatchPrompt(images.length) }],
+        },
+      ],
+    },
+    { timeout: AI_TIMEOUT_MS }
+  );
+
+  const parsed = parseAiJson(message.content[0].text);
+  const results = Array.isArray(parsed?.results) ? parsed.results : [];
+
+  if (results.length !== images.length) {
+    throw new Error(
+      `AI returned ${results.length} result(s) for ${images.length} image(s) — mismatched batch`
+    );
+  }
+
+  return results;
+}
+
 /**
  * Lightweight live check: confirms the configured model id is valid and the
  * API key works, without the cost of a real vision extraction call.
@@ -244,4 +391,4 @@ async function pingModel() {
   }
 }
 
-module.exports = { extractMetrics, extractMetricsFromImages, pingModel };
+module.exports = { extractMetrics, extractMetricsFromImages, classifyAndExtractBatch, pingModel };
