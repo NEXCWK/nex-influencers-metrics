@@ -21,6 +21,14 @@ import Coupons from './pages/Coupons.jsx';
 import Navbar from './components/Navbar.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
+function PageLoader() {
+  return (
+    <div className="page-loader" role="status" aria-label="Carregando">
+      <div className="spinner" />
+    </div>
+  );
+}
+
 // Where each role lands after login / when denied a route it can't see.
 // 'operacao' is a narrow role that can only ever see Registro de Cupons.
 function homeForRole(role) {
@@ -37,11 +45,7 @@ function ProtectedRoute({ children, adminOnly = false, roles }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user) {
@@ -62,7 +66,7 @@ function ProtectedRoute({ children, adminOnly = false, roles }) {
       <Navbar />
       <main className="main-content">
         <ErrorBoundary>
-          {children}
+          <div className="page">{children}</div>
         </ErrorBoundary>
       </main>
     </div>
@@ -74,11 +78,7 @@ function RootRedirect() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user) return <Navigate to="/login" replace />;
@@ -90,7 +90,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public routes */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/change-password" element={<ChangePasswordRoute />} />
 
       {/* Influencer routes — the narrow "operacao" role has no access here */}
@@ -196,16 +196,23 @@ function AppRoutes() {
   );
 }
 
+// Login: an already-authenticated user goes straight to their home instead
+// of seeing the login form again.
+function LoginRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (user) {
+    return <Navigate to={user.must_change_password ? '/change-password' : homeForRole(user.role)} replace />;
+  }
+  return <Login />;
+}
+
 // Change password route: only accessible when authenticated
 function ChangePasswordRoute() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <div className="spinner" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user) return <Navigate to="/login" replace />;

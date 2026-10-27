@@ -1,79 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+import { PageHeader, Segmented, EmptyState, Skeleton, Modal, Avatar, Spinner, Menu, MenuItem } from '../components/ui.jsx';
+import { IconPlus, IconSearch, IconUsers, IconRefresh, IconKey, IconLock, IconUnlock } from '../components/Icons.jsx';
+import { relativeTime, formatDateTime } from '../utils/format.js';
 
-function relativeTime(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'agora';
-  if (mins < 60) return `ha ${mins}min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `ha ${hrs}h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `ha ${days}d`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `ha ${months}m`;
-  return `ha ${Math.floor(months / 12)}a`;
-}
+const DEFAULT_PASSWORD = 'nex2026';
 
-function formatDateFull(s) {
-  if (!s) return '';
-  const d = new Date(s);
-  return isNaN(d) ? s : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+const ROLE_META = {
+  admin: { label: 'Admin', className: 'badge-dark' },
+  operacao: { label: 'Operação', className: 'badge-warning' },
+  influencer: { label: 'Influenciador', className: 'badge-neutral' },
+};
 
 function RoleBadge({ role }) {
-  if (role === 'admin') {
-    return (
-      <span className="badge badge-warning">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-        Admin
-      </span>
-    );
-  }
-  if (role === 'operacao') {
-    return (
-      <span className="badge badge-danger">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <rect x="3" y="11" width="18" height="10" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        Operação
-      </span>
-    );
-  }
-  return (
-    <span className="badge badge-success">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-      </svg>
-      Influenciador
-    </span>
-  );
+  const meta = ROLE_META[role] || ROLE_META.influencer;
+  return <span className={`badge ${meta.className}`}>{meta.label}</span>;
 }
 
 function StatusBadge({ active }) {
-  if (active) {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--success)', fontWeight: 500, fontFamily: 'var(--font)' }}>
-        <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--success)', flexShrink: 0, display: 'inline-block' }} />
-        Ativo
-      </span>
-    );
-  }
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: 'var(--ink-muted)', fontWeight: 500, fontFamily: 'var(--font)' }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--border)', flexShrink: 0, display: 'inline-block' }} />
-      Inativo
-    </span>
-  );
+  return active
+    ? <span className="badge badge-success"><span className="dot" />Ativo</span>
+    : <span className="badge badge-neutral"><span className="dot" style={{ opacity: 0.4 }} />Inativo</span>;
 }
 
 export default function AdminUsers() {
+  const { user: me } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -84,7 +36,6 @@ export default function AdminUsers() {
   const [form, setForm] = useState({ username: '', display_name: '', role: 'influencer' });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [checkingAi, setCheckingAi] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -93,7 +44,7 @@ export default function AdminUsers() {
       const res = await api.get('/admin/users');
       setUsers(res.data?.users || res.data || []);
     } catch {
-      setError('Erro ao carregar usuarios.');
+      setError('Erro ao carregar usuários.');
     } finally {
       setLoading(false);
     }
@@ -107,41 +58,15 @@ export default function AdminUsers() {
     setActionLoading((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleCheckAiModel = async () => {
-    setCheckingAi(true);
-    try {
-      const res = await api.get('/admin/ai-status');
-      const d = res.data || {};
-      if (d.ok) {
-        alert(
-          `✅ IA funcionando normalmente.\n\n` +
-          `Modelo configurado: ${d.model}\n` +
-          (d.reported_model ? `Modelo confirmado pela Anthropic: ${d.reported_model}\n` : '') +
-          `Origem: ${d.configured_via_env ? 'variável de ambiente ANTHROPIC_MODEL' : 'padrão do código'}\n` +
-          `Tempo de resposta: ${d.latency_ms}ms`
-        );
-      } else {
-        alert(
-          `❌ Falha ao verificar a IA.\n\n` +
-          `Modelo configurado: ${d.model}\n` +
-          `Origem: ${d.configured_via_env ? 'variável de ambiente ANTHROPIC_MODEL' : 'padrão do código'}\n` +
-          `Erro: ${d.error || 'desconhecido'}`
-        );
-      }
-    } catch (err) {
-      alert(err.response?.data?.error || 'Erro ao verificar o modelo de IA.');
-    } finally {
-      setCheckingAi(false);
-    }
-  };
-
   const openCreate = () => {
     setForm({ username: '', display_name: '', role: 'influencer' });
     setCreateError('');
     setShowCreate(true);
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async (e) => {
+    e?.preventDefault();
+    if (!form.username.trim()) return;
     setCreating(true);
     setCreateError('');
     try {
@@ -150,7 +75,7 @@ export default function AdminUsers() {
         display_name: form.display_name.trim(),
         role: form.role,
       });
-      const pwd = res.data?.default_password || 'nex2026';
+      const pwd = res.data?.default_password || DEFAULT_PASSWORD;
       const u = res.data?.user;
       const emailInfo = res.data?.email;
       setShowCreate(false);
@@ -166,7 +91,7 @@ export default function AdminUsers() {
         `Usuário criado com sucesso!\n\n` +
         `Login: ${u?.username}\n` +
         `Senha padrão: ${pwd}\n\n` +
-        `No primeiro acesso ele será obrigado a definir uma nova senha.` +
+        `No primeiro acesso será obrigatório definir uma nova senha.` +
         emailNote
       );
       fetchUsers();
@@ -178,19 +103,16 @@ export default function AdminUsers() {
   };
 
   const handleResetPassword = async (user) => {
-    if (!window.confirm(`Resetar a senha de "${user.display_name || user.username}"?\n\nEle precisara definir uma nova senha no proximo login.`)) return;
+    if (!window.confirm(`Resetar a senha de "${user.display_name || user.username}"?\n\nA senha volta para a padrão e uma nova senha será exigida no próximo login.`)) return;
     setUserLoading(user.id, 'reset');
     try {
-      const res = await api.post(`/admin/users/${user.id}/reset-password`);
-      const tempPassword = res.data?.temp_password;
-      if (tempPassword) {
-        alert(`Senha resetada com sucesso!\n\nSenha temporaria: ${tempPassword}\n\nAnote e repasse ao usuario.`);
-      } else {
-        alert('Senha resetada com sucesso!');
-      }
+      await api.post(`/admin/users/${user.id}/reset-password`);
+      // The backend resets to the default password (it never returns a
+      // temporary one), so tell the admin what to pass along.
+      alert(`Senha resetada com sucesso!\n\nNova senha (padrão): ${DEFAULT_PASSWORD}\n\nRepasse ao usuário — ele precisará trocá-la no próximo login.`);
       fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao resetar senha.');
+      alert(err.response?.data?.error || err.response?.data?.detail || 'Erro ao resetar senha.');
     } finally {
       setUserLoading(user.id, null);
     }
@@ -198,18 +120,23 @@ export default function AdminUsers() {
 
   const handleToggleStatus = async (user) => {
     const action = user.is_active ? 'desativar' : 'ativar';
-    if (!window.confirm(`Deseja ${action} o usuario "${user.display_name || user.username}"?`)) return;
+    if (!window.confirm(`Deseja ${action} o usuário "${user.display_name || user.username}"?`)) return;
     setUserLoading(user.id, 'toggle');
     try {
       const res = await api.patch(`/admin/users/${user.id}/toggle`);
       const updated = res.data;
       setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, is_active: updated.is_active ?? !user.is_active } : u));
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao alterar status.');
+      const msg = err.response?.data?.error || err.response?.data?.detail;
+      alert(msg === 'You cannot deactivate your own account'
+        ? 'Você não pode desativar a sua própria conta.'
+        : msg || 'Erro ao alterar status.');
     } finally {
       setUserLoading(user.id, null);
     }
   };
+
+  const counts = users.reduce((acc, u) => ({ ...acc, [u.role]: (acc[u.role] || 0) + 1 }), {});
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -219,153 +146,121 @@ export default function AdminUsers() {
   });
 
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Usuarios</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary" onClick={handleCheckAiModel} disabled={checkingAi}>
-            {checkingAi ? 'Verificando...' : 'Verificar modelo de IA'}
-          </button>
-          <button className="btn btn-secondary" onClick={fetchUsers}>
-            Atualizar
-          </button>
-          <button className="btn btn-primary" onClick={openCreate}>
-            + Adicionar usuário
-          </button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        title="Usuários"
+        subtitle={`Quem acessa a plataforma. Novos usuários entram com a senha padrão ${DEFAULT_PASSWORD} e definem a própria senha no primeiro acesso.`}
+        actions={(
+          <>
+            <button type="button" className="btn btn-secondary" onClick={fetchUsers} disabled={loading}>
+              <IconRefresh size={14} /> Atualizar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              <IconPlus size={15} /> Adicionar usuário
+            </button>
+          </>
+        )}
+      />
 
-      <div style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 12,
-        padding: '12px 14px 12px 16px',
-        background: 'var(--accent-soft)',
-        borderLeft: '3px solid var(--accent)',
-        borderRadius: 'var(--radius-sm)',
-        marginBottom: 20,
-      }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a5800" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#7a5800', fontFamily: 'var(--font)', marginBottom: 2 }}>
-            Adicionar usuarios
-          </p>
-          <p style={{ fontSize: 13, color: '#7a5800', fontFamily: 'var(--font)', fontWeight: 400 }}>
-            Use o botão "Adicionar usuário". O novo usuário entra com a senha padrão <strong>nex2026</strong> e precisa defini-la no primeiro acesso.
-          </p>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Buscar por nome ou usuario..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 320 }}
-        />
-        <select
-          className="form-control"
+      <div className="toolbar">
+        <Segmented
+          ariaLabel="Filtrar por perfil"
           value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          style={{ width: 'auto' }}
-        >
-          <option value="">Todos os perfis</option>
-          <option value="admin">Admin</option>
-          <option value="influencer">Influenciador</option>
-          <option value="operacao">Operação</option>
-        </select>
+          onChange={setRoleFilter}
+          options={[
+            { value: '', label: 'Todos', count: users.length },
+            { value: 'influencer', label: 'Influenciadores', count: counts.influencer || 0 },
+            { value: 'admin', label: 'Admins', count: counts.admin || 0 },
+            { value: 'operacao', label: 'Operação', count: counts.operacao || 0 },
+          ]}
+        />
+        <div className="toolbar-spacer" />
+        <div className="input-icon" style={{ flex: '0 1 300px' }}>
+          <IconSearch size={15} />
+          <input
+            type="search"
+            className="form-control"
+            placeholder="Buscar usuário"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar usuários"
+          />
+        </div>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 16 }} />
+        <Skeleton height={320} />
       ) : (
         <div className="table-container">
           <table>
             <thead>
               <tr>
                 <th>Nome</th>
-                <th>Usuario</th>
                 <th>Perfil</th>
                 <th>Status</th>
-                <th>Ultimo acesso</th>
-                <th>Acoes</th>
+                <th className="hide-sm">Último acesso</th>
+                <th className="num"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 32 }}>
-                    Nenhum usuario encontrado.
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState icon={<IconUsers size={20} />} title="Nenhum usuário encontrado" text="Ajuste a busca ou o filtro de perfil." />
                   </td>
                 </tr>
               ) : filtered.map((user) => {
-                const isAdmin = user.role === 'admin';
-                const avatarBg = isAdmin ? 'var(--accent)' : '#E0DED8';
-                const avatarColor = isAdmin ? 'var(--ink)' : 'var(--ink-muted)';
+                const name = user.display_name || user.username;
+                const busy = actionLoading[user.id];
+                const isMe = me?.id === user.id;
                 return (
                   <tr key={user.id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%', background: avatarBg,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 700, fontSize: 13, fontFamily: 'var(--font)', flexShrink: 0, color: avatarColor,
-                        }}>
-                          {(user.display_name || user.username || 'U')[0].toUpperCase()}
+                      <div className="row" style={{ flexWrap: 'nowrap' }}>
+                        <Avatar name={name} size={32} variant={user.role === 'admin' ? 'accent' : 'muted'} />
+                        <div style={{ minWidth: 0 }}>
+                          <div className="cell-title">{name}{isMe && <span className="muted" style={{ fontWeight: 400 }}> (você)</span>}</div>
+                          <div className="cell-sub">@{user.username}</div>
                         </div>
-                        <span style={{ fontWeight: 600, fontSize: 14, fontFamily: 'var(--font)' }}>
-                          {user.display_name || user.username}
-                        </span>
                       </div>
                     </td>
-                    <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>
-                      @{user.username}
-                    </td>
+                    <td><RoleBadge role={user.role} /></td>
                     <td>
-                      <RoleBadge role={user.role} />
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <div className="row">
                         <StatusBadge active={user.is_active} />
                         {user.must_change_password && (
-                          <span className="badge badge-warning" style={{ fontSize: 11 }}>Senha temp.</span>
+                          <span className="badge badge-warning" title="Ainda usa a senha padrão — troca obrigatória no próximo login">Senha temporária</span>
                         )}
                       </div>
                     </td>
-                    <td>
-                      <span
-                        title={formatDateFull(user.last_login)}
-                        style={{ fontSize: 13, color: 'var(--ink-muted)', cursor: 'default', fontVariantNumeric: 'tabular-nums' }}
-                      >
-                        {relativeTime(user.last_login)}
+                    <td className="hide-sm">
+                      <span className="muted tabular" title={formatDateTime(user.last_login)} style={{ fontSize: 13 }}>
+                        {user.last_login ? relativeTime(user.last_login) : 'Nunca acessou'}
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleResetPassword(user)}
-                          disabled={!!actionLoading[user.id]}
-                        >
-                          {actionLoading[user.id] === 'reset' ? '...' : 'Resetar Senha'}
-                        </button>
-                        <button
-                          className={`btn btn-sm ${user.is_active ? 'btn-danger-outline' : 'btn-primary'}`}
-                          onClick={() => handleToggleStatus(user)}
-                          disabled={!!actionLoading[user.id]}
-                        >
-                          {actionLoading[user.id] === 'toggle'
-                            ? '...'
-                            : user.is_active ? 'Desativar' : 'Ativar'}
-                        </button>
+                      <div className="cell-actions">
+                        {busy ? (
+                          <Spinner size={16} />
+                        ) : (
+                          <Menu buttonClassName="btn btn-icon" label={`Ações para ${name}`}>
+                            <MenuItem icon={<IconKey size={15} />} hint={`Volta para ${DEFAULT_PASSWORD}`} onClick={() => handleResetPassword(user)}>
+                              Resetar senha
+                            </MenuItem>
+                            <hr className="menu-divider" />
+                            <MenuItem
+                              icon={user.is_active ? <IconLock size={15} /> : <IconUnlock size={15} />}
+                              danger={user.is_active}
+                              disabled={isMe && user.is_active}
+                              hint={isMe && user.is_active ? 'Você não pode desativar a sua conta' : undefined}
+                              onClick={() => handleToggleStatus(user)}
+                            >
+                              {user.is_active ? 'Desativar acesso' : 'Reativar acesso'}
+                            </MenuItem>
+                          </Menu>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -377,34 +272,46 @@ export default function AdminUsers() {
       )}
 
       {showCreate && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
-          <div className="modal-card" style={{ maxWidth: 440 }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Adicionar usuário</h2>
-              <button className="modal-close" onClick={() => setShowCreate(false)}>×</button>
-            </div>
-
+        <Modal
+          title="Adicionar usuário"
+          subtitle={`A senha inicial será ${DEFAULT_PASSWORD}, com troca obrigatória no primeiro login.`}
+          onClose={() => setShowCreate(false)}
+          maxWidth={480}
+          footer={(
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
+              <button type="submit" form="create-user-form" className="btn btn-primary" disabled={creating || !form.username.trim()}>
+                {creating ? <><Spinner /> Criando...</> : 'Criar usuário'}
+              </button>
+            </>
+          )}
+        >
+          <form id="create-user-form" onSubmit={handleCreate} noValidate>
             {createError && <div className="alert alert-error">{createError}</div>}
 
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Nome de usuário (login)</label>
+            <div className="form-group">
+              <label className="form-label" htmlFor="new-username">Nome de usuário (login)</label>
               <input
+                id="new-username"
                 type="text"
                 className="form-control"
-                placeholder="ex: jaque  —  ou um e-mail: nome@nexcoworking.com.br"
+                placeholder="ex: jaque ou nome@nexcoworking.com.br"
                 value={form.username}
                 onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
               />
-              <p style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 4 }}>
+              <p className="form-hint">
                 Minúsculas, números, ponto, hífen, underline ou @ — sem espaços. Se usar um
                 e-mail, o sistema tenta enviar um convite automaticamente para ele.
               </p>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Nome de exibição (opcional)</label>
+            <div className="form-group">
+              <label className="form-label" htmlFor="new-display">Nome de exibição <span className="muted">(opcional)</span></label>
               <input
+                id="new-display"
                 type="text"
                 className="form-control"
                 placeholder="ex: Jaque"
@@ -413,9 +320,10 @@ export default function AdminUsers() {
               />
             </div>
 
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label className="form-label">Perfil</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" htmlFor="new-role">Perfil</label>
               <select
+                id="new-role"
                 className="form-control"
                 value={form.role}
                 onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
@@ -425,20 +333,9 @@ export default function AdminUsers() {
                 <option value="operacao">Operação (só vê Registro de Cupons)</option>
               </select>
             </div>
-
-            <p style={{ fontSize: 13, color: 'var(--ink-muted)', marginBottom: 16 }}>
-              A senha inicial será <strong>nex2026</strong>, com troca obrigatória no primeiro login.
-            </p>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !form.username.trim()}>
-                {creating ? 'Criando...' : 'Criar usuário'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
       )}
-    </div>
+    </>
   );
 }

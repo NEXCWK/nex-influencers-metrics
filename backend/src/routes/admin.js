@@ -116,7 +116,8 @@ function buildCsv(posts) {
 router.get('/overview', async (req, res, next) => {
   try {
     const { year, month } = parseYearMonth(req.query);
-    const overview = await metricsService.getAdminOverview(year, month);
+    // ?platform= narrows every number to one network ("Todas" when empty).
+    const overview = await metricsService.getAdminOverview(year, month, req.query.platform || undefined);
     return res.json(overview);
   } catch (err) {
     console.error('GET /admin/overview error:', err.message);
@@ -131,7 +132,7 @@ router.get('/influencers', async (req, res, next) => {
   try {
     const { year, month } = parseYearMonth(req.query);
     const sortBy = req.query.sortBy || 'reach';
-    const ranking = await metricsService.getInfluencersRanking(year, month, sortBy);
+    const ranking = await metricsService.getInfluencersRanking(year, month, sortBy, req.query.platform || undefined);
     return res.json({ year, month, sort_by: sortBy, ranking });
   } catch (err) {
     console.error('GET /admin/influencers error:', err.message);
@@ -151,7 +152,7 @@ router.get('/influencers/:id/dashboard', async (req, res, next) => {
     // Verify user exists and is an influencer
     const { data: influencer, error: userError } = await supabase
       .from('users')
-      .select('id, username, display_name, role, is_active, last_login')
+      .select('id, username, display_name, role, is_active, last_login, avatar_url')
       .eq('id', id)
       .maybeSingle();
 
@@ -164,9 +165,12 @@ router.get('/influencers/:id/dashboard', async (req, res, next) => {
     }
 
     // Fetch summary, history and posts in parallel
-    const [summary, history, postsResult] = await Promise.all([
+    const [summary, history, yearData, postsResult] = await Promise.all([
       metricsService.getMonthlySummary(id, year, month),
       metricsService.getMonthlyHistory(id, 12),
+      // The "Visão Anual" tab reads year_data — it was never sent, so the
+      // chart was always empty for admins.
+      metricsService.getYearView(id, year),
       metricsService
         .getAllPostsFiltered({ influencerId: id, year, month, page: 1, pageSize: 50 })
         .catch(() => ({ posts: [], total: 0 })),
@@ -174,12 +178,19 @@ router.get('/influencers/:id/dashboard', async (req, res, next) => {
 
     const postsWithUrls = await attachSignedUrls(postsResult.posts);
 
+    // The page header shows the influencer's photo; it's stored as a private
+    // storage path, so sign it like everywhere else.
+    const avatarUrl = influencer.avatar_url
+      ? await storage.getSignedUrl(influencer.avatar_url)
+      : null;
+
     return res.json({
-      influencer,
+      influencer: { ...influencer, avatar_url: avatarUrl },
       year,
       month,
       summary,
       history,
+      year_data: yearData,
       posts: postsWithUrls,
       posts_total: postsResult.total,
     });
@@ -569,13 +580,14 @@ router.patch('/posts/:id', async (req, res, next) => {
 // ---------------------------------------------------------------------------
 router.get('/export', async (req, res, next) => {
   try {
-    const { influencerId, year, month, platform, startDate, endDate } = req.query;
+    const { influencerId, year, month, platform, postType, startDate, endDate } = req.query;
 
     const rows = await metricsService.exportPostsCSV({
       influencerId,
       year: year ? parseInt(year, 10) : undefined,
       month: month ? parseInt(month, 10) : undefined,
       platform,
+      postType,
       startDate,
       endDate,
     });
@@ -686,7 +698,7 @@ router.get('/users', async (req, res, next) => {
   try {
     const { data: users, error } = await supabase
       .from('users')
-      .select('id, username, display_name, role, is_active, last_login, created_at')
+      .select('id, username, display_name, role, is_active, must_change_password, last_login, created_at')
       .order('created_at', { ascending: true });
 
     if (error) {

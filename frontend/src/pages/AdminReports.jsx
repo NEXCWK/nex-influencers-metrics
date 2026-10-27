@@ -1,16 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api.js';
-
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-
-function formatDateFull(s) {
-  if (!s) return '—';
-  const d = new Date(s);
-  return isNaN(d) ? s : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
+import { PageHeader, EmptyState, Skeleton, Modal, Spinner } from '../components/ui.jsx';
+import { IconMail, IconRefresh, IconCalendar, IconAlert, IconEye } from '../components/Icons.jsx';
+import { MONTHS, formatDateTime } from '../utils/format.js';
 
 export default function AdminReports() {
   const [reports, setReports] = useState([]);
@@ -19,6 +11,7 @@ export default function AdminReports() {
   const [generating, setGenerating] = useState(false);
   const [migrationPending, setMigrationPending] = useState(false);
   const [viewing, setViewing] = useState(null); // { html, ... } | null
+  const [openingId, setOpeningId] = useState(null);
 
   const fetchReports = async () => {
     setLoading(true);
@@ -65,87 +58,94 @@ export default function AdminReports() {
   };
 
   const handleView = async (report) => {
+    setOpeningId(report.id);
     try {
       const res = await api.get(`/admin/reports/${report.id}`);
       setViewing(res.data?.report);
     } catch (err) {
       alert(err.response?.data?.error || 'Erro ao carregar o relatório.');
+    } finally {
+      setOpeningId(null);
     }
   };
 
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Relatório Mensal</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary" onClick={fetchReports}>Atualizar</button>
-          <button className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
-            {generating ? 'Gerando...' : 'Gerar relatório agora'}
-          </button>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        title="Relatório mensal"
+        subtitle="Resumo de performance por influenciador, gerado a partir dos posts do mês anterior completo."
+        actions={(
+          <>
+            <button type="button" className="btn btn-secondary" onClick={fetchReports} disabled={loading}>
+              <IconRefresh size={14} /> Atualizar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
+              {generating ? <><Spinner /> Gerando...</> : 'Gerar relatório agora'}
+            </button>
+          </>
+        )}
+      />
 
-      <div style={{
-        display: 'flex', alignItems: 'flex-start', gap: 12,
-        padding: '12px 14px 12px 16px', background: 'var(--accent-soft)',
-        borderLeft: '3px solid var(--accent)', borderRadius: 'var(--radius-sm)', marginBottom: 20,
-      }}>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#7a5800', fontFamily: 'var(--font)', marginBottom: 2 }}>
-            Envio automático
-          </p>
-          <p style={{ fontSize: 13, color: '#7a5800', fontFamily: 'var(--font)', fontWeight: 400 }}>
-            Todo dia 05 do mês, o sistema gera automaticamente o relatório do mês anterior completo
-            e tenta enviar para felipe@nex.work e luiza@nex.work (ou os destinatários configurados em
-            MONTHLY_REPORT_RECIPIENTS). O envio por e-mail só funciona depois que um provedor SMTP for
-            configurado no servidor — até lá, o relatório é gerado e fica disponível aqui para visualização.
-          </p>
-        </div>
+      <div className="alert alert-info">
+        <IconCalendar size={16} />
+        <span>
+          <strong>Envio automático todo dia 05.</strong>{' '}
+          O sistema gera o relatório do mês anterior e tenta enviar para felipe@nex.work e luiza@nex.work
+          (ou os destinatários configurados em MONTHLY_REPORT_RECIPIENTS). O e-mail só sai depois que um
+          provedor SMTP for configurado no servidor — até lá, o relatório fica disponível aqui.
+        </span>
       </div>
 
       {migrationPending && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
-          A tabela de relatórios ainda não existe no banco. Rode a migration 006_monthly_reports.sql no Supabase.
+        <div className="alert alert-error">
+          <IconAlert size={16} />
+          <span>A tabela de relatórios ainda não existe no banco. Rode a migration 006_monthly_reports.sql no Supabase.</span>
         </div>
       )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="skeleton" style={{ height: 240, borderRadius: 16 }} />
+        <Skeleton height={260} />
       ) : (
         <div className="table-container">
           <table>
             <thead>
               <tr>
                 <th>Período</th>
-                <th>Destinatários</th>
+                <th className="hide-sm">Destinatários</th>
                 <th>Status</th>
-                <th>Gerado em</th>
-                <th>Ações</th>
+                <th className="hide-sm">Gerado em</th>
+                <th className="num"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 32 }}>
-                    Nenhum relatório gerado ainda.
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={<IconMail size={20} />}
+                      title="Nenhum relatório gerado ainda"
+                      text="Use “Gerar relatório agora” ou aguarde o envio automático do dia 05."
+                    />
                   </td>
                 </tr>
               ) : reports.map((r) => (
                 <tr key={r.id}>
-                  <td style={{ fontWeight: 600, fontSize: 13 }}>{MONTHS[r.report_month - 1]} de {r.report_year}</td>
-                  <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{(r.recipients || []).join(', ')}</td>
+                  <td className="cell-title">{MONTHS[r.report_month - 1]} de {r.report_year}</td>
+                  <td className="hide-sm muted" style={{ fontSize: 13 }}>{(r.recipients || []).join(', ') || '—'}</td>
                   <td>
                     {r.sent ? (
-                      <span className="badge badge-success">Enviado</span>
+                      <span className="badge badge-success"><span className="dot" />Enviado</span>
                     ) : (
-                      <span className="badge badge-warning" title={r.send_error || ''}>Não enviado</span>
+                      <span className="badge badge-warning" title={r.send_error || ''}><span className="dot" />Não enviado</span>
                     )}
                   </td>
-                  <td style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{formatDateFull(r.generated_at)}</td>
-                  <td>
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleView(r)}>Visualizar</button>
+                  <td className="hide-sm muted nowrap" style={{ fontSize: 13 }}>{formatDateTime(r.generated_at)}</td>
+                  <td className="num">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => handleView(r)} disabled={openingId === r.id}>
+                      {openingId === r.id ? <Spinner size={13} /> : <IconEye size={14} />} Visualizar
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -155,20 +155,19 @@ export default function AdminReports() {
       )}
 
       {viewing && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setViewing(null)}>
-          <div className="modal-card" style={{ maxWidth: 720, width: '100%' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">{MONTHS[viewing.report_month - 1]} de {viewing.report_year}</h2>
-              <button className="modal-close" onClick={() => setViewing(null)}>×</button>
-            </div>
-            <iframe
-              title="Relatório mensal"
-              srcDoc={viewing.html}
-              style={{ width: '100%', height: '65vh', border: '1px solid var(--border)', borderRadius: 8 }}
-            />
-          </div>
-        </div>
+        <Modal
+          title={`${MONTHS[viewing.report_month - 1]} de ${viewing.report_year}`}
+          subtitle="Pré-visualização do e-mail do relatório"
+          onClose={() => setViewing(null)}
+          maxWidth={760}
+        >
+          <iframe
+            title="Relatório mensal"
+            srcDoc={viewing.html}
+            style={{ width: '100%', height: '65vh', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: '#fff' }}
+          />
+        </Modal>
       )}
-    </div>
+    </>
   );
 }

@@ -28,6 +28,10 @@
   flex-shrink: 0;
   cursor: pointer;
   border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: none;
+  display: block;
 }
 
 .avatar {
@@ -35,7 +39,7 @@
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--border);
+  border: 1px solid var(--border);
   display: block;
 }
 
@@ -43,14 +47,14 @@
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--ink);
-  color: white;
+  background: var(--accent);
+  color: #000;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 30px;
   font-weight: 700;
-  font-family: var(--font);
+  font-family: var(--font-display);
 }
 
 .avatarOverlay {
@@ -73,14 +77,14 @@
 .hint {
   font-size: 12px;
   color: var(--ink-muted);
-  font-family: var(--font);
+  font-family: var(--font-display);
   margin: 6px 0 0;
 }
 
 .fieldErr {
   font-size: 12px;
   color: var(--danger);
-  font-family: var(--font);
+  font-family: var(--font-display);
   margin: 4px 0 0;
 }
 
@@ -89,7 +93,7 @@
   text-align: right;
   font-size: 12px;
   color: var(--ink-muted);
-  font-family: var(--font);
+  font-family: var(--font-display);
   margin-top: 4px;
 }
 
@@ -146,33 +150,8 @@
 .strengthLabel {
   font-size: 11px;
   font-weight: 600;
-  font-family: var(--font);
+  font-family: var(--font-display);
   min-width: 48px;
   text-align: right;
 }
 
-/* ── Toast ───────────────────────────────────────── */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--ink);
-  color: white;
-  padding: 12px 20px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: var(--font);
-  z-index: 9999;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  animation: slideUpToast 200ms ease-out both;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 320px;
-}
-
-@keyframes slideUpToast {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}

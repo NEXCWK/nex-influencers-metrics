@@ -62,6 +62,7 @@ export function flattenPost(post) {
     engagement_rate: m.engagement_rate ?? null,
     profile_visits: m.profile_visits ?? null,
     link_clicks: m.link_clicks ?? null,
+    extra_metrics: post.extra_metrics ?? m.extra_metrics ?? null,
   };
 }
 

@@ -1,153 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
-import PostList from '../components/PostList.jsx';
 import NexLineChart from '../components/Charts/LineChart.jsx';
 import BarComparison from '../components/Charts/BarComparison.jsx';
 import YearView from '../components/Charts/YearView.jsx';
+import { CHART_COLORS } from '../components/Charts/theme.jsx';
+import PostDetailModal from '../components/PostDetailModal.jsx';
 import { summaryFromAgg, toChartSeries, flattenPosts } from '../utils/normalize.js';
-import { FormatBadge, DuplicateBadge, MetricCell, PostLink } from '../components/PostBadges.jsx';
 import {
-  IconDocument, IconSignal, IconEye, IconHeart,
-  IconCamera, IconChevronLeft, IconChevronRight,
+  FormatBadge, DuplicateBadge, MetricCell, PostLink, PlatformLabel, PostThumb,
+} from '../components/PostBadges.jsx';
+import {
+  IconDocument, IconSignal, IconEye, IconHeart, IconRefresh, IconTrash, IconImage,
 } from '../components/Icons.jsx';
+import {
+  PageHeader, SectionHeader, Segmented, MonthSelect, YearSelect, EmptyState, Skeleton, Avatar, Spinner,
+} from '../components/ui.jsx';
+import { MONTHS, currentMonth, currentYear, formatCompact, formatDate, platformLabel } from '../utils/format.js';
 import styles from './AdminInfluencer.module.css';
 
-const MONTHS = [
-  'Janeiro','Fevereiro','Marco','Abril','Maio','Junho',
-  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
-];
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
-
 const COMPARE_METRICS = [
-  { key: 'reach', label: 'Alcance' },
+  { key: 'impressions', label: 'Visualizações' },
   { key: 'likes', label: 'Curtidas' },
-  { key: 'impressions', label: 'Visualizacoes' },
+  { key: 'reach', label: 'Alcance' },
 ];
-
-const PLATFORM_CHIP_CLASS = {
-  instagram: styles.chipInstagram,
-  tiktok: styles.chipTiktok,
-  youtube: styles.chipYoutube,
-  linkedin: styles.chipLinkedin,
-};
-
-function SkeletonCard() {
-  return <div className="skeleton" style={{ height: 110, borderRadius: 16 }} />;
-}
-
-function PostImageModal({ post, onClose }) {
-  const [prints, setPrints] = useState([]);
-  const [printIdx, setPrintIdx] = useState(0);
-  const [loadingPrints, setLoadingPrints] = useState(true);
-
-  useEffect(() => {
-    if (!post) return;
-    setLoadingPrints(true);
-    setPrintIdx(0);
-    api.get(`/admin/posts/${post.id}/prints`)
-      .then((res) => setPrints(res.data?.prints || (post.image_url ? [post.image_url] : [])))
-      .catch(() => setPrints(post.image_url ? [post.image_url] : []))
-      .finally(() => setLoadingPrints(false));
-  }, [post]);
-
-  if (!post) return null;
-
-  const extraMetrics = post.extra_metrics && typeof post.extra_metrics === 'object'
-    ? Object.entries(post.extra_metrics)
-    : [];
-
-  return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-card" style={{ maxWidth: 760 }}>
-        <div className="modal-header">
-          <h2 className="modal-title">{post.title || 'Post'}</h2>
-          <button className="modal-close" onClick={onClose}>x</button>
-        </div>
-
-        {loadingPrints ? (
-          <div className="skeleton" style={{ height: 300, borderRadius: 8, marginBottom: 20 }} />
-        ) : prints.length > 0 ? (
-          <div style={{ marginBottom: 20 }}>
-            <img
-              src={prints[printIdx]}
-              alt={`Print ${printIdx + 1}`}
-              style={{ width: '100%', borderRadius: 8, objectFit: 'contain', maxHeight: 460, background: 'var(--surface-muted)' }}
-            />
-            {prints.length > 1 && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 10 }}>
-                <button className="btn btn-secondary btn-sm" disabled={printIdx === 0} onClick={() => setPrintIdx((i) => i - 1)}>
-                  <IconChevronLeft size={14} /> Anterior
-                </button>
-                <span style={{ fontSize: 13, color: 'var(--ink-muted)' }}>{printIdx + 1} / {prints.length}</span>
-                <button className="btn btn-secondary btn-sm" disabled={printIdx === prints.length - 1} onClick={() => setPrintIdx((i) => i + 1)}>
-                  Proximo <IconChevronRight size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        <div className={styles.postDetailGrid}>
-          {[
-            ['Plataforma', post.platform],
-            ['Formato', post.post_type === 'story' ? 'Story' : 'Feed'],
-            ['Data', post.published_date || post.created_at],
-            ['Alcance', post.reach],
-            ['Curtidas', post.likes],
-            ['Comentarios', post.comments],
-            ['Compartilhamentos', post.shares],
-            // Visualizações/Plays/Salvamentos só existem em posts de Feed —
-            // não aparecem (nem zerados) no detalhamento de um Story.
-            ...(post.post_type === 'story' ? [] : [
-              ['Visualizacoes', post.impressions],
-              ['Plays', post.plays],
-              ['Salvamentos', post.saves],
-            ]),
-            ['Visitas ao Perfil', post.profile_visits],
-            ['Cliques no Link', post.link_clicks],
-          ].map(([label, val]) => (
-            <div key={label} className={styles.detailItem}>
-              <span className={styles.detailLabel}>{label}</span>
-              <span className={styles.detailValue}>{val ?? '—'}</span>
-            </div>
-          ))}
-        </div>
-
-        {extraMetrics.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <p className="section-title" style={{ marginBottom: 10 }}>Metricas adicionais (IA)</p>
-            <div className={styles.postDetailGrid}>
-              {extraMetrics.map(([key, val]) => (
-                <div key={key} className={styles.detailItem}>
-                  <span className={styles.detailLabel}>{key.replace(/_/g, ' ')}</span>
-                  <span className={styles.detailValue}>{val ?? '—'}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button className="btn btn-secondary" onClick={onClose}>Fechar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function AdminInfluencer() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlYear = parseInt(searchParams.get('year'), 10);
   const urlMonth = parseInt(searchParams.get('month'), 10);
 
-  const [month, setMonthState] = useState(urlMonth >= 1 && urlMonth <= 12 ? urlMonth : CURRENT_MONTH);
-  const [year, setYearState] = useState(!isNaN(urlYear) ? urlYear : CURRENT_YEAR);
+  const [month, setMonthState] = useState(urlMonth >= 1 && urlMonth <= 12 ? urlMonth : currentMonth());
+  const [year, setYearState] = useState(!isNaN(urlYear) ? urlYear : currentYear());
 
   // Keep the URL in sync so the chosen month/year survives navigation
   // (e.g. back to Visão Geral and into another influencer) instead of
@@ -207,10 +94,11 @@ export default function AdminInfluencer() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleDeletePost = async (post) => {
-    if (!window.confirm(`Confirmar exclusao do post "${post.title || 'post'}"?`)) return;
+    if (!window.confirm(`Confirmar exclusão do post "${post.title || 'post'}"?`)) return;
     try {
       await api.delete(`/admin/posts/${post.id}`);
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setSelectedPost((p) => (p?.id === post.id ? null : p));
     } catch {
       alert('Erro ao excluir post.');
     }
@@ -248,141 +136,123 @@ export default function AdminInfluencer() {
     await fetchData();
   };
 
-  const yearOptions = [];
-  for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) yearOptions.push(y);
-
   const cur = summaryFromAgg(summary?.current);
   const prev = summaryFromAgg(summary?.previous);
 
   const platforms = [...new Set(posts.map((p) => p.platform).filter(Boolean))];
-  const initial = loading
-    ? '?'
-    : ((influencer?.display_name || influencer?.username || '?')[0] || '?').toUpperCase();
+  const name = influencer?.display_name || influencer?.username || 'Influenciador';
+  const backTo = `/admin?year=${year}&month=${month}`;
 
   return (
-    <div>
-      {loading ? (
-        <div className="skeleton" style={{ height: 90, borderRadius: 16, marginBottom: 28 }} />
-      ) : (
-        <div className={styles.influencerHeader}>
-          <div className={styles.headerAvatarWrap}>
-            {influencer?.avatar_url ? (
-              <img src={influencer.avatar_url} alt="" className={styles.headerAvatarImg} />
+    <>
+      <PageHeader
+        crumbs={[{ label: 'Visão geral', to: backTo }, { label: loading && !influencer ? '…' : name }]}
+        title={(
+          <span className={styles.titleRow}>
+            {loading && !influencer ? (
+              <span className="skeleton" style={{ width: 52, height: 52, borderRadius: '50%' }} />
             ) : (
-              <div className={styles.headerAvatar}>{initial}</div>
+              <Avatar src={influencer?.avatar_url} name={name} size={52} variant="accent" />
             )}
-          </div>
-          <div className={styles.headerInfo}>
-            <h1 className={styles.headerName}>
-              {influencer?.display_name || influencer?.username || 'Influenciador'}
-            </h1>
-            {influencer?.username && (
-              <p className={styles.headerHandle}>@{influencer.username}</p>
-            )}
-            {platforms.length > 0 && (
-              <div className={styles.platformChips}>
+            <span className={styles.titleText}>
+              <span>{loading && !influencer ? 'Carregando…' : name}</span>
+              <span className={styles.titleMeta}>
+                {influencer?.username && <span>@{influencer.username}</span>}
                 {platforms.map((p) => (
-                  <span key={p} className={`${styles.platformChip} ${PLATFORM_CHIP_CLASS[p] || styles.chipDefault}`}>
-                    {p}
-                  </span>
+                  <span key={p} className={`platform-label platform-${p}`} style={{ fontSize: 12 }}>{platformLabel(p)}</span>
                 ))}
-              </div>
-            )}
-          </div>
-          <div className={styles.headerActions}>
-            <button className={styles.backLink} onClick={() => navigate('/admin')}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-              Voltar
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="page-header" style={{ marginBottom: 20 }}>
-        <div />
-        <div className={styles.filters}>
-          <select className="form-control" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-          </select>
-          <select className="form-control" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-      </div>
+              </span>
+            </span>
+          </span>
+        )}
+        actions={(
+          <>
+            <MonthSelect value={month} onChange={setMonth} style={{ width: 'auto' }} />
+            <YearSelect value={year} onChange={setYear} style={{ width: 'auto' }} />
+          </>
+        )}
+      />
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="metrics-grid">
         {loading ? (
-          <><SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard /></>
+          <><Skeleton height={124} /><Skeleton height={124} /><Skeleton height={124} /><Skeleton height={124} /></>
         ) : (
           <>
-            <MetricCard label="Visualizacoes Totais" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} highlight />
-            <MetricCard label="Curtidas Totais" value={cur.total_likes} icon={<IconHeart size={16} />} previousValue={prev.total_likes} highlight />
-            <MetricCard label="Total de Posts" value={cur.total_posts} icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
-            <MetricCard label="Alcance Total" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
+            <MetricCard label="Visualizações" value={cur.total_impressions} icon={<IconEye size={16} />} previousValue={prev.total_impressions} highlight />
+            <MetricCard label="Curtidas" value={cur.total_likes} icon={<IconHeart size={16} />} previousValue={prev.total_likes} highlight />
+            <MetricCard label="Posts" value={cur.total_posts} unit="raw" icon={<IconDocument size={16} />} previousValue={prev.total_posts} />
+            <MetricCard label="Alcance" value={cur.total_reach} icon={<IconSignal size={16} />} previousValue={prev.total_reach} />
           </>
         )}
       </div>
 
-      <div className="tab-bar">
-        <button className={`tab-btn ${tab === 'month' ? 'active' : ''}`} onClick={() => setTab('month')}>Mes Atual</button>
-        <button className={`tab-btn ${tab === 'year' ? 'active' : ''}`} onClick={() => setTab('year')}>Visao Anual</button>
-      </div>
-
-      {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 16, marginBottom: 24 }} />
-      ) : tab === 'month' ? (
-        <div className={styles.chartsRow}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+      <section className="section">
+        <SectionHeader
+          title="Evolução"
+          hint={tab === 'month' ? 'Últimos 12 meses e comparativo com o mês anterior' : `Mês a mês em ${year}`}
+          actions={(
+            <Segmented
+              ariaLabel="Período dos gráficos"
+              value={tab}
+              onChange={setTab}
+              options={[{ value: 'month', label: 'Mensal' }, { value: 'year', label: 'Anual' }]}
+            />
+          )}
+        />
+        {loading ? (
+          <Skeleton height={340} />
+        ) : tab === 'month' ? (
+          <div className="grid-2">
             <NexLineChart
               data={history}
               xKey="month"
-              title="Evolucao — Alcance e Visualizacoes"
+              title="Visualizações e alcance"
+              subtitle="Últimos 12 meses"
               lines={[
-                { key: 'reach', name: 'Alcance', color: '#000000' },
-                { key: 'impressions', name: 'Visualizacoes', color: '#7c3aed' },
+                { key: 'impressions', name: 'Visualizações', color: CHART_COLORS.primary },
+                { key: 'reach', name: 'Alcance', color: CHART_COLORS.accent },
               ]}
             />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
             <BarComparison
               currentData={compare?.current || {}}
               previousData={compare?.previous || {}}
               metrics={COMPARE_METRICS}
             />
           </div>
-        </div>
-      ) : (
-        <YearView data={yearData} />
-      )}
+        ) : (
+          <YearView data={yearData} year={year} />
+        )}
+      </section>
 
-      <div style={{ marginTop: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h2 className="section-title" style={{ margin: 0 }}>Posts do Periodo</h2>
-          {posts.length > 0 && (
+      <section className="section">
+        <SectionHeader
+          title="Posts do período"
+          hint={loading ? undefined : `${posts.length} ${posts.length === 1 ? 'post' : 'posts'} em ${MONTHS[month - 1]}/${year}`}
+          actions={posts.length > 0 && (
             <button
+              type="button"
               className="btn btn-secondary btn-sm"
               onClick={handleReprocessMonth}
               disabled={!!bulkProgress || !!reprocessingId}
               title="Re-executa a IA sobre os prints de todos os posts deste mês"
             >
-              {bulkProgress ? `Reprocessando ${bulkProgress.done}/${bulkProgress.total}...` : 'Reprocessar métricas do mês'}
+              {bulkProgress
+                ? <><Spinner size={13} /> Reprocessando {bulkProgress.done}/{bulkProgress.total}…</>
+                : <><IconRefresh size={13} /> Reprocessar métricas do mês</>}
             </button>
           )}
-        </div>
+        />
         {loading ? (
-          <div className="skeleton" style={{ height: 200, borderRadius: 16 }} />
+          <Skeleton height={220} />
         ) : posts.length === 0 ? (
-          <div style={{
-            textAlign: 'center', padding: '48px 24px',
-            border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-            color: 'var(--ink-muted)', fontSize: 14,
-          }}>
-            Nenhum post encontrado para o periodo selecionado.
-          </div>
+          <EmptyState
+            bordered
+            icon={<IconImage size={20} />}
+            title="Nenhum post neste período"
+            text="Escolha outro mês no seletor acima."
+          />
         ) : (
           <AdminPostList
             posts={posts}
@@ -393,85 +263,82 @@ export default function AdminInfluencer() {
             bulkBusy={!!bulkProgress}
           />
         )}
-      </div>
+      </section>
 
       {selectedPost && (
-        <PostImageModal post={selectedPost} onClose={() => setSelectedPost(null)} />
+        <PostDetailModal post={selectedPost} onClose={() => setSelectedPost(null)} />
       )}
-    </div>
+    </>
   );
 }
 
 function AdminPostList({ posts, onView, onDelete, onReprocess, reprocessingId, bulkBusy }) {
-  const formatNum = (v) => {
-    if (v === null || v === undefined) return '—';
-    const n = parseFloat(v);
-    if (isNaN(n)) return '—';
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.', ',')}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace('.', ',')}K`;
-    return n.toLocaleString('pt-BR');
-  };
-
-  const formatDate = (s) => {
-    if (!s) return '—';
-    const d = new Date(s);
-    return isNaN(d) ? s : d.toLocaleDateString('pt-BR');
-  };
-
   return (
     <div className="table-container">
       <table>
         <thead>
           <tr>
             <th>Post</th>
-            <th>Plataforma</th>
+            <th className="hide-sm">Plataforma</th>
             <th>Formato</th>
-            <th>Data</th>
-            <th>Visualizações</th>
-            <th>Curtidas</th>
-            <th>Acoes</th>
+            <th className="hide-sm">Data</th>
+            <th className="num">Visualizações</th>
+            <th className="num">Curtidas</th>
+            <th className="num"><span className="sr-only">Ações</span></th>
           </tr>
         </thead>
         <tbody>
           {posts.map((post) => (
-            <tr key={post.id}>
+            <tr key={post.id} className="clickable" onClick={() => onView(post)}>
               <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {post.image_url ? (
-                    <img src={post.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer', flexShrink: 0 }} onClick={() => onView(post)} />
-                  ) : (
-                    <div style={{ width: 40, height: 40, background: 'var(--surface-muted)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-muted)', flexShrink: 0 }}>
-                      <IconCamera size={16} />
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13, fontFamily: 'var(--font)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      {post.title || 'Sem titulo'}
+                <div className="post-cell">
+                  <PostThumb src={post.image_url} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                    <span className="cell-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {post.title || 'Sem título'}
                       <PostLink url={post.post_url} />
                     </span>
-                    {post.possible_duplicate && <DuplicateBadge />}
+                    {post.possible_duplicate && <span><DuplicateBadge /></span>}
                   </div>
                 </div>
               </td>
-              <td><span className={`platform-${post.platform}`}>{post.platform}</span></td>
+              <td className="hide-sm"><PlatformLabel platform={post.platform} /></td>
               <td><FormatBadge type={post.post_type} /></td>
-              <td style={{ color: 'var(--ink-muted)', fontSize: 13 }}>{formatDate(post.published_date || post.created_at)}</td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.impressions} format={formatNum} /></td>
-              <td style={{ fontVariantNumeric: 'tabular-nums' }}><MetricCell value={post.likes} format={formatNum} /></td>
-              <td>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => onView(post)}>Ver</button>
+              <td className="hide-sm muted nowrap">{formatDate(post.published_date || post.created_at)}</td>
+              <td className="num strong"><MetricCell value={post.impressions} format={formatCompact} /></td>
+              <td className="num"><MetricCell value={post.likes} format={formatCompact} /></td>
+              <td onClick={(e) => e.stopPropagation()}>
+                <div className="cell-actions">
+                  <button
+                    type="button"
+                    className="btn-icon btn"
+                    onClick={() => onView(post)}
+                    title="Ver prints e métricas"
+                    aria-label="Ver prints e métricas"
+                  >
+                    <IconEye size={15} />
+                  </button>
                   {onReprocess && (
                     <button
-                      className="btn btn-secondary btn-sm"
+                      type="button"
+                      className="btn-icon btn"
                       onClick={() => onReprocess(post)}
                       disabled={reprocessingId === post.id || bulkBusy}
-                      title="Re-executar a extração de métricas por IA sobre os prints deste post"
+                      title="Re-extrair métricas com IA"
+                      aria-label="Re-extrair métricas com IA"
                     >
-                      {reprocessingId === post.id ? 'Extraindo...' : 'Re-extrair'}
+                      {reprocessingId === post.id ? <Spinner size={14} /> : <IconRefresh size={15} />}
                     </button>
                   )}
-                  <button className="btn btn-danger-outline btn-sm" onClick={() => onDelete(post)}>Excluir</button>
+                  <button
+                    type="button"
+                    className="btn-icon btn danger"
+                    onClick={() => onDelete(post)}
+                    title="Excluir post"
+                    aria-label="Excluir post"
+                  >
+                    <IconTrash size={15} />
+                  </button>
                 </div>
               </td>
             </tr>

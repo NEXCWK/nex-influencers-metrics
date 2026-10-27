@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
-import styles from './Login.module.css';
+import AuthLayout, { authStyles as styles } from '../components/AuthLayout.jsx';
+
+// The API answers in English; show the user a Portuguese message.
+const ERROR_MESSAGES = {
+  'Invalid credentials': 'Usuário ou senha incorretos.',
+  'Account is deactivated': 'Este acesso está desativado. Fale com a equipe Nex.',
+  'Username and password are required': 'Informe usuário e senha.',
+  'Too many requests, please try again later': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+};
 
 function IconUser() {
   return (
@@ -105,10 +113,10 @@ export default function Login() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      const msg =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        'Usuário ou senha incorretos.';
+      const raw = err.response?.data?.error || err.response?.data?.message;
+      const msg = !err.response
+        ? 'Não foi possível conectar ao servidor. Verifique sua conexão.'
+        : ERROR_MESSAGES[raw] || raw || 'Usuário ou senha incorretos.';
       setPasswordError(msg);
     } finally {
       setLoading(false);
@@ -116,95 +124,84 @@ export default function Login() {
   };
 
   return (
-    <div className={styles.page} data-dark={dark ? 'true' : undefined}>
+    <AuthLayout
+      dark={dark}
+      topRight={(
+        <button
+          type="button"
+          className={styles.themeToggle}
+          onClick={() => setDark((d) => !d)}
+          aria-label={dark ? 'Modo claro' : 'Modo escuro'}
+          title={dark ? 'Modo claro' : 'Modo escuro'}
+        >
+          {dark ? <IconSun /> : <IconMoon />}
+        </button>
+      )}
+    >
+      <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.mobileLogo} />
+      <h1 className={styles.title}>Entrar</h1>
+      <p className={styles.subtitle}>Acesso restrito a usuários cadastrados.</p>
 
-      {/* Dark mode toggle */}
-      <button
-        className={styles.themeToggle}
-        onClick={() => setDark((d) => !d)}
-        aria-label={dark ? 'Modo claro' : 'Modo escuro'}
-        title={dark ? 'Modo claro' : 'Modo escuro'}
-      >
-        {dark ? <IconSun /> : <IconMoon />}
-      </button>
-
-      <div className={styles.card}>
-        {/* Header */}
-        <div className={styles.logoArea}>
-          <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
-          <span className={styles.badge}>Influencer Metrics</span>
+      <form onSubmit={handleSubmit} noValidate>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel} htmlFor="username">Usuário</label>
+          <div className={styles.inputWrapper}>
+            <span className={styles.inputIcon}><IconUser /></span>
+            <input
+              id="username"
+              type="text"
+              className={styles.input}
+              value={username}
+              onChange={(e) => { setUsername(e.target.value); setUsernameError(''); }}
+              placeholder="seu.usuario"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoFocus
+              disabled={loading}
+              aria-invalid={!!usernameError}
+            />
+          </div>
+          {usernameError && <span className={styles.fieldError} role="alert">{usernameError}</span>}
         </div>
 
-        <h1 className={styles.title}>Entrar na plataforma</h1>
-        <p className={styles.subtitle}>Acesso restrito a usuários cadastrados.</p>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} noValidate>
-
-          {/* Username */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel} htmlFor="username">Usuário</label>
-            <div className={styles.inputWrapper}>
-              <span className={styles.inputIcon}><IconUser /></span>
-              <input
-                id="username"
-                type="text"
-                className={styles.input}
-                value={username}
-                onChange={(e) => { setUsername(e.target.value); setUsernameError(''); }}
-                placeholder="seu.usuario"
-                autoComplete="username"
-                autoFocus
-                disabled={loading}
-              />
-            </div>
-            {usernameError && <span className={styles.fieldError}>{usernameError}</span>}
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel} htmlFor="password">Senha</label>
+          <div className={styles.inputWrapper}>
+            <span className={styles.inputIcon}><IconLock /></span>
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              className={`${styles.input} ${styles.inputPassword}`}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              disabled={loading}
+              aria-invalid={!!passwordError}
+            />
+            <button
+              type="button"
+              className={styles.eyeBtn}
+              onClick={() => setShowPassword((v) => !v)}
+              tabIndex={-1}
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            >
+              {showPassword ? <IconEyeOff /> : <IconEye />}
+            </button>
           </div>
+          {passwordError && <span className={styles.fieldError} role="alert">{passwordError}</span>}
+        </div>
 
-          {/* Password */}
-          <div className={styles.fieldGroup}>
-            <label className={styles.fieldLabel} htmlFor="password">Senha</label>
-            <div className={styles.inputWrapper}>
-              <span className={styles.inputIcon}><IconLock /></span>
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                className={`${styles.input} ${styles.inputPassword}`}
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                className={styles.eyeBtn}
-                onClick={() => setShowPassword((v) => !v)}
-                tabIndex={-1}
-                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              >
-                {showPassword ? <IconEyeOff /> : <IconEye />}
-              </button>
-            </div>
-            {passwordError && <span className={styles.fieldError}>{passwordError}</span>}
-          </div>
-
-          {/* Submit */}
-          <button type="submit" className={styles.submitBtn} disabled={loading}>
-            {loading ? (
-              <>
-                <span className={styles.btnSpinner} />
-                Entrando...
-              </>
-            ) : 'Entrar'}
-          </button>
-
-        </form>
-
-        {/* Footer */}
-        <hr className={styles.footerSep} />
-        <p className={styles.footer}>Nex Coworking &copy; {new Date().getFullYear()}</p>
-      </div>
-    </div>
+        <button type="submit" className={styles.submitBtn} disabled={loading}>
+          {loading ? (
+            <>
+              <span className={styles.btnSpinner} />
+              Entrando...
+            </>
+          ) : 'Entrar'}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

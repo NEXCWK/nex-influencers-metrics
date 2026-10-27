@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../api.js';
-import styles from './ChangePassword.module.css';
+import AuthLayout, { authStyles as styles } from '../components/AuthLayout.jsx';
+import { IconLock, IconInfo } from '../components/Icons.jsx';
+
+// The API answers in English; show the user a Portuguese message.
+const ERROR_MESSAGES = {
+  'New password must be different from the default password': 'A nova senha precisa ser diferente da senha padrão.',
+  'Password must be at least 8 characters long': 'A senha deve ter pelo menos 8 caracteres.',
+  'new_password is required': 'Informe a nova senha.',
+};
 
 export default function ChangePassword() {
   const { user, updateUser, logout } = useAuth();
@@ -39,93 +47,83 @@ export default function ChangePassword() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        'Erro ao alterar a senha. Tente novamente.'
-      );
+      const raw = err.response?.data?.error || err.response?.data?.message;
+      setError(ERROR_MESSAGES[raw] || raw || 'Erro ao alterar a senha. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
+  const firstName = (user?.display_name || user?.username || '').split(' ')[0];
+
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.logoArea}>
-          <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
-          <span className={styles.logoSub}>Influencer Metrics</span>
-        </div>
+    <AuthLayout>
+      <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.mobileLogo} />
+      <h1 className={styles.title}>{firstName ? `Boas-vindas, ${firstName}!` : 'Defina sua senha'}</h1>
+      <p className={styles.subtitle}>
+        É o seu primeiro acesso. Por segurança, crie uma senha pessoal para continuar.
+      </p>
 
-        <div className="alert alert-info" style={{ marginBottom: 24 }}>
-          <strong>Primeiro acesso detectado.</strong> Por segurança, você precisa definir uma senha pessoal antes de continuar.
-        </div>
+      <form onSubmit={handleSubmit} noValidate>
+        {error && (
+          <div className="alert alert-error" role="alert">
+            <IconInfo size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
-        <h1 className={styles.title}>Defina sua nova senha</h1>
-        <p className={styles.subtitle}>Mínimo de 8 caracteres.</p>
-
-        <form onSubmit={handleSubmit} noValidate>
-          {error && <div className="alert alert-error">{error}</div>}
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="newPassword">Nova senha</label>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel} htmlFor="newPassword">Nova senha</label>
+          <div className={styles.inputWrapper}>
+            <span className={styles.inputIcon}><IconLock size={16} /></span>
             <input
               id="newPassword"
               type="password"
-              className="form-control"
+              className={styles.input}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mínimo de 8 caracteres"
+              autoComplete="new-password"
               autoFocus
               disabled={loading}
             />
           </div>
+        </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="confirmPassword">Confirmar nova senha</label>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel} htmlFor="confirmPassword">Confirmar nova senha</label>
+          <div className={styles.inputWrapper}>
+            <span className={styles.inputIcon}><IconLock size={16} /></span>
             <input
               id="confirmPassword"
               type="password"
-              className="form-control"
+              className={styles.input}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Repita a senha"
+              autoComplete="new-password"
               disabled={loading}
             />
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                Salvando...
-              </>
-            ) : 'Definir senha e entrar'}
-          </button>
-        </form>
-
-        <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <button
-            onClick={() => { logout(); navigate('/login'); }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              fontSize: 13,
-              cursor: 'pointer',
-              fontFamily: 'Arial, sans-serif',
-              textDecoration: 'underline',
-            }}
-          >
-            Voltar ao login
-          </button>
         </div>
-      </div>
-    </div>
+
+        <button type="submit" className={styles.submitBtn} disabled={loading}>
+          {loading ? (
+            <>
+              <span className={styles.btnSpinner} />
+              Salvando...
+            </>
+          ) : 'Definir senha e entrar'}
+        </button>
+      </form>
+
+      <button
+        type="button"
+        className={styles.linkBtn}
+        onClick={() => { logout(); navigate('/login'); }}
+      >
+        Voltar ao login
+      </button>
+    </AuthLayout>
   );
 }

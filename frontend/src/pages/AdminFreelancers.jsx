@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api.js';
-import { IconEye, IconHeart, IconMessageCircle, IconUpload, IconDocument } from '../components/Icons.jsx';
+import {
+  IconEye, IconHeart, IconMessageCircle, IconRefresh, IconDocument, IconPlus, IconCamera,
+  IconTrash, IconExternal, IconList,
+} from '../components/Icons.jsx';
+import { PageHeader, EmptyState, Skeleton, Modal, Avatar, Spinner, Menu, MenuItem } from '../components/ui.jsx';
+import { formatCompact } from '../utils/format.js';
+import styles from './AdminFreelancers.module.css';
 
 const FORMAT_OPTIONS = [
   { value: 'feed', label: 'Feed' },
@@ -16,25 +22,16 @@ function formatLabel(value) {
   return FORMAT_OPTIONS.find((f) => f.value === value)?.label || value;
 }
 
-function formatNum(v) {
-  if (v === null || v === undefined) return '—';
-  const n = Number(v);
-  if (isNaN(n)) return '—';
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace('.', ',')}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace('.', ',')}K`;
-  return n.toLocaleString('pt-BR');
-}
-
 function Stat({ icon, label, value }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 70 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--ink-muted)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em' }}>
-        {icon}{label}
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatNum(value)}</div>
+    <div className={styles.stat}>
+      <span className={styles.statLabel}>{icon}{label}</span>
+      <span className={styles.statValue}>{formatCompact(value)}</span>
     </div>
   );
 }
+
+const EMPTY_POST = { post_url: '', format: 'feed', likes: '', views: '', comments: '', reposts: '' };
 
 export default function AdminFreelancers() {
   const [influencers, setInfluencers] = useState([]);
@@ -48,7 +45,7 @@ export default function AdminFreelancers() {
   const [createError, setCreateError] = useState('');
 
   const [postModalFor, setPostModalFor] = useState(null); // influencer object | null
-  const [postForm, setPostForm] = useState({ post_url: '', format: 'feed', likes: '', views: '', comments: '', reposts: '' });
+  const [postForm, setPostForm] = useState(EMPTY_POST);
   const [savingPost, setSavingPost] = useState(false);
   const [postError, setPostError] = useState('');
 
@@ -78,7 +75,9 @@ export default function AdminFreelancers() {
     setShowCreate(true);
   };
 
-  const handleCreate = async () => {
+  const handleCreate = async (e) => {
+    e?.preventDefault();
+    if (!createForm.name.trim()) return;
     setCreating(true);
     setCreateError('');
     try {
@@ -103,12 +102,14 @@ export default function AdminFreelancers() {
   };
 
   const openPostModal = (inf) => {
-    setPostForm({ post_url: '', format: 'feed', likes: '', views: '', comments: '', reposts: '' });
+    setPostForm(EMPTY_POST);
     setPostError('');
     setPostModalFor(inf);
   };
 
-  const handleSavePost = async () => {
+  const handleSavePost = async (e) => {
+    e?.preventDefault();
+    if (!postForm.post_url.trim()) return;
     setSavingPost(true);
     setPostError('');
     try {
@@ -131,6 +132,7 @@ export default function AdminFreelancers() {
 
   const openViewPosts = async (inf) => {
     setViewingPostsFor(inf);
+    setInfluencerPosts([]);
     setLoadingPosts(true);
     try {
       const res = await api.get(`/admin/freelancers/${inf.id}/posts`);
@@ -153,24 +155,28 @@ export default function AdminFreelancers() {
     }
   };
 
-  return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Influenciadores Avulsos</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary" onClick={fetchInfluencers}>Atualizar</button>
-          <button className="btn btn-primary" onClick={openCreate}>+ Adicionar influenciador</button>
-        </div>
-      </div>
+  const setPostField = (key) => (e) => setPostForm((f) => ({ ...f, [key]: e.target.value }));
 
-      <p style={{ fontSize: 13, color: 'var(--ink-muted)', fontFamily: 'var(--font)', marginBottom: 20, maxWidth: 640 }}>
-        Cadastre aqui influenciadores que não têm login no sistema (parcerias avulsas/pontuais)
-        e registre manualmente os posts que eles fizeram — link, formato, curtidas, visualizações,
-        comentários e reposts.
-      </p>
+  return (
+    <>
+      <PageHeader
+        crumbs={[{ label: 'Influenciadores' }]}
+        title="Influenciadores avulsos"
+        subtitle="Parcerias pontuais sem login no sistema. Cadastre o influenciador e registre manualmente os posts feitos — link, formato e métricas."
+        actions={(
+          <>
+            <button type="button" className="btn btn-secondary" onClick={fetchInfluencers} disabled={loading}>
+              <IconRefresh size={14} /> Atualizar
+            </button>
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              <IconPlus size={15} /> Adicionar influenciador
+            </button>
+          </>
+        )}
+      />
 
       {migrationPending && (
-        <div className="alert alert-error" style={{ marginBottom: 16 }}>
+        <div className="alert alert-error">
           As tabelas de influenciadores avulsos ainda não existem no banco. Rode a migration 007_freelance_influencers.sql no Supabase.
         </div>
       )}
@@ -178,76 +184,82 @@ export default function AdminFreelancers() {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <div className="skeleton" style={{ height: 240, borderRadius: 16 }} />
+        <div className="grid-auto"><Skeleton height={220} /><Skeleton height={220} /><Skeleton height={220} /></div>
       ) : influencers.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--ink-muted)' }}>
-          Nenhum influenciador avulso cadastrado ainda.
-        </div>
+        <EmptyState
+          bordered
+          icon={<IconCamera size={20} />}
+          title="Nenhum influenciador avulso cadastrado"
+          text="Cadastre parcerias pontuais para acompanhar os resultados junto com a rede."
+          action={<button type="button" className="btn btn-primary btn-sm" onClick={openCreate}><IconPlus size={14} /> Adicionar influenciador</button>}
+        />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+        <div className="grid-auto">
           {influencers.map((inf) => (
-            <div key={inf.id} className="card" style={{ padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{inf.name}</div>
-                  {inf.notes && <div style={{ fontSize: 12, color: 'var(--ink-muted)', marginTop: 2 }}>{inf.notes}</div>}
+            <article key={inf.id} className={`card ${styles.card}`}>
+              <header className={styles.cardHeader}>
+                <Avatar name={inf.name} size={40} variant="muted" />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 className={styles.name}>{inf.name}</h3>
+                  {inf.notes && <p className={styles.notes}>{inf.notes}</p>}
                 </div>
-                <button
-                  className="btn btn-danger-outline btn-sm"
-                  onClick={() => handleDeleteInfluencer(inf)}
-                  title="Excluir influenciador avulso"
-                >
-                  Excluir
-                </button>
-              </div>
+                <Menu buttonClassName="btn btn-icon" label={`Mais ações para ${inf.name}`}>
+                  <MenuItem icon={<IconTrash size={15} />} danger onClick={() => handleDeleteInfluencer(inf)}>
+                    Excluir influenciador
+                  </MenuItem>
+                </Menu>
+              </header>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '10px 0 14px' }}>
+              <div className={styles.formats}>
                 {inf.formats && inf.formats.length > 0 ? (
-                  inf.formats.map((f) => (
-                    <span
-                      key={f}
-                      style={{
-                        fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-                        border: '1px solid var(--border)', color: 'var(--ink-soft)', background: 'var(--surface-muted)',
-                      }}
-                    >
-                      {formatLabel(f)}
-                    </span>
-                  ))
+                  inf.formats.map((f) => <span key={f} className="badge badge-neutral">{formatLabel(f)}</span>)
                 ) : (
-                  <span style={{ fontSize: 12, color: 'var(--ink-muted)' }}>Nenhum post registrado</span>
+                  <span className="muted" style={{ fontSize: 12 }}>Nenhum post registrado</span>
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginBottom: 16 }}>
+              <div className={styles.stats}>
                 <Stat icon={<IconDocument size={12} />} label="Posts" value={inf.post_count} />
-                <Stat icon={<IconEye size={12} />} label="Visualizações" value={inf.total_views} />
+                <Stat icon={<IconEye size={12} />} label="Views" value={inf.total_views} />
                 <Stat icon={<IconHeart size={12} />} label="Curtidas" value={inf.total_likes} />
-                <Stat icon={<IconMessageCircle size={12} />} label="Comentários" value={inf.total_comments} />
-                <Stat icon={<IconUpload size={12} />} label="Reposts" value={inf.total_reposts} />
+                <Stat icon={<IconMessageCircle size={12} />} label="Coment." value={inf.total_comments} />
+                <Stat icon={<IconRefresh size={12} />} label="Reposts" value={inf.total_reposts} />
               </div>
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" onClick={() => openPostModal(inf)}>+ Registrar post</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => openViewPosts(inf)}>Ver posts ({inf.post_count})</button>
-              </div>
-            </div>
+              <footer className={styles.actions}>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => openPostModal(inf)}>
+                  <IconPlus size={14} /> Registrar post
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => openViewPosts(inf)}>
+                  <IconList size={14} /> Ver posts ({inf.post_count || 0})
+                </button>
+              </footer>
+            </article>
           ))}
         </div>
       )}
 
       {/* Create influencer modal */}
       {showCreate && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowCreate(false)}>
-          <div className="modal-card" style={{ maxWidth: 440 }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Adicionar influenciador avulso</h2>
-              <button className="modal-close" onClick={() => setShowCreate(false)}>×</button>
-            </div>
+        <Modal
+          title="Adicionar influenciador avulso"
+          onClose={() => setShowCreate(false)}
+          maxWidth={460}
+          footer={(
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
+              <button type="submit" form="create-freelancer" className="btn btn-primary" disabled={creating || !createForm.name.trim()}>
+                {creating ? <><Spinner /> Criando...</> : 'Criar'}
+              </button>
+            </>
+          )}
+        >
+          <form id="create-freelancer" onSubmit={handleCreate} noValidate>
             {createError && <div className="alert alert-error">{createError}</div>}
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Nome</label>
+            <div className="form-group">
+              <label className="form-label" htmlFor="fl-name">Nome</label>
               <input
+                id="fl-name"
                 type="text"
                 className="form-control"
                 value={createForm.name}
@@ -255,9 +267,10 @@ export default function AdminFreelancers() {
                 autoFocus
               />
             </div>
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label className="form-label">Observações (opcional)</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" htmlFor="fl-notes">Observações <span className="muted">(opcional)</span></label>
               <input
+                id="fl-notes"
                 type="text"
                 className="form-control"
                 placeholder="ex: parceria pontual, campanha X"
@@ -265,133 +278,126 @@ export default function AdminFreelancers() {
                 onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))}
               />
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button className="btn btn-secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleCreate} disabled={creating || !createForm.name.trim()}>
-                {creating ? 'Criando...' : 'Criar'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
       )}
 
       {/* Register post modal */}
       {postModalFor && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setPostModalFor(null)}>
-          <div className="modal-card" style={{ maxWidth: 480 }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Registrar post — {postModalFor.name}</h2>
-              <button className="modal-close" onClick={() => setPostModalFor(null)}>×</button>
-            </div>
+        <Modal
+          title="Registrar post"
+          subtitle={postModalFor.name}
+          onClose={() => setPostModalFor(null)}
+          maxWidth={520}
+          footer={(
+            <>
+              <button type="button" className="btn btn-secondary" onClick={() => setPostModalFor(null)} disabled={savingPost}>Cancelar</button>
+              <button type="submit" form="register-freelance-post" className="btn btn-primary" disabled={savingPost || !postForm.post_url.trim()}>
+                {savingPost ? <><Spinner /> Salvando...</> : 'Registrar'}
+              </button>
+            </>
+          )}
+        >
+          <form id="register-freelance-post" onSubmit={handleSavePost} noValidate>
             {postError && <div className="alert alert-error">{postError}</div>}
 
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Link do post</label>
+            <div className="form-group">
+              <label className="form-label" htmlFor="fp-url">Link do post</label>
               <input
+                id="fp-url"
                 type="url"
                 className="form-control"
                 placeholder="https://www.instagram.com/p/..."
                 value={postForm.post_url}
-                onChange={(e) => setPostForm((f) => ({ ...f, post_url: e.target.value }))}
+                onChange={setPostField('post_url')}
                 autoFocus
               />
             </div>
 
-            <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Formato</label>
-              <select
-                className="form-control"
-                value={postForm.format}
-                onChange={(e) => setPostForm((f) => ({ ...f, format: e.target.value }))}
-              >
+            <div className="form-group">
+              <label className="form-label" htmlFor="fp-format">Formato</label>
+              <select id="fp-format" className="form-control" value={postForm.format} onChange={setPostField('format')}>
                 {FORMAT_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
               </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
-              <div className="form-group">
-                <label className="form-label">Curtidas</label>
-                <input type="number" min="0" className="form-control" value={postForm.likes}
-                  onChange={(e) => setPostForm((f) => ({ ...f, likes: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Visualizações</label>
-                <input type="number" min="0" className="form-control" value={postForm.views}
-                  onChange={(e) => setPostForm((f) => ({ ...f, views: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Comentários</label>
-                <input type="number" min="0" className="form-control" value={postForm.comments}
-                  onChange={(e) => setPostForm((f) => ({ ...f, comments: e.target.value }))} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Reposts</label>
-                <input type="number" min="0" className="form-control" value={postForm.reposts}
-                  onChange={(e) => setPostForm((f) => ({ ...f, reposts: e.target.value }))} />
-              </div>
+            <div className="form-grid">
+              {[
+                ['views', 'Visualizações'],
+                ['likes', 'Curtidas'],
+                ['comments', 'Comentários'],
+                ['reposts', 'Reposts'],
+              ].map(([key, label]) => (
+                <div key={key} className="form-group">
+                  <label className="form-label" htmlFor={`fp-${key}`}>{label}</label>
+                  <input
+                    id={`fp-${key}`}
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    className="form-control"
+                    value={postForm[key]}
+                    onChange={setPostField(key)}
+                  />
+                </div>
+              ))}
             </div>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button className="btn btn-secondary" onClick={() => setPostModalFor(null)} disabled={savingPost}>Cancelar</button>
-              <button className="btn btn-primary" onClick={handleSavePost} disabled={savingPost || !postForm.post_url.trim()}>
-                {savingPost ? 'Salvando...' : 'Registrar'}
-              </button>
-            </div>
-          </div>
-        </div>
+          </form>
+        </Modal>
       )}
 
       {/* View posts modal */}
       {viewingPostsFor && (
-        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setViewingPostsFor(null)}>
-          <div className="modal-card" style={{ maxWidth: 640, width: '100%' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">Posts — {viewingPostsFor.name}</h2>
-              <button className="modal-close" onClick={() => setViewingPostsFor(null)}>×</button>
-            </div>
-            {loadingPosts ? (
-              <div className="skeleton" style={{ height: 160, borderRadius: 12 }} />
-            ) : influencerPosts.length === 0 ? (
-              <p style={{ color: 'var(--ink-muted)', fontSize: 13, textAlign: 'center', padding: 24 }}>Nenhum post registrado ainda.</p>
-            ) : (
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Link</th>
-                      <th>Formato</th>
-                      <th>Visualizações</th>
-                      <th>Curtidas</th>
-                      <th>Comentários</th>
-                      <th>Reposts</th>
-                      <th></th>
+        <Modal
+          title="Posts registrados"
+          subtitle={viewingPostsFor.name}
+          onClose={() => setViewingPostsFor(null)}
+          maxWidth={760}
+        >
+          {loadingPosts ? (
+            <Skeleton height={160} />
+          ) : influencerPosts.length === 0 ? (
+            <EmptyState icon={<IconList size={20} />} title="Nenhum post registrado ainda" />
+          ) : (
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Post</th>
+                    <th>Formato</th>
+                    <th className="num">Views</th>
+                    <th className="num">Curtidas</th>
+                    <th className="num">Coment.</th>
+                    <th className="num">Reposts</th>
+                    <th><span className="sr-only">Ações</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {influencerPosts.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <a href={p.post_url} target="_blank" rel="noopener noreferrer" className="link-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          Abrir <IconExternal size={12} />
+                        </a>
+                      </td>
+                      <td><span className="badge badge-neutral">{formatLabel(p.format)}</span></td>
+                      <td className="num">{formatCompact(p.views)}</td>
+                      <td className="num">{formatCompact(p.likes)}</td>
+                      <td className="num">{formatCompact(p.comments)}</td>
+                      <td className="num">{formatCompact(p.reposts)}</td>
+                      <td className="num">
+                        <button type="button" className="btn btn-icon danger" onClick={() => handleDeletePost(p)} title="Excluir post" aria-label="Excluir post">
+                          <IconTrash size={15} />
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {influencerPosts.map((p) => (
-                      <tr key={p.id}>
-                        <td>
-                          <a href={p.post_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
-                            Abrir post
-                          </a>
-                        </td>
-                        <td>{formatLabel(p.format)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(p.views)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(p.likes)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(p.comments)}</td>
-                        <td style={{ fontVariantNumeric: 'tabular-nums' }}>{formatNum(p.reposts)}</td>
-                        <td>
-                          <button className="btn btn-danger-outline btn-sm" onClick={() => handleDeletePost(p)}>Excluir</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Modal>
       )}
-    </div>
+    </>
   );
 }

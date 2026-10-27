@@ -19,7 +19,7 @@ function monthRange(year, month) {
 // Helper: fetch aggregated metrics for one user over a date range
 // Returns null when no posts exist for that range.
 // ---------------------------------------------------------------------------
-async function fetchAggregatedForRange(userId, rangeStart, rangeEnd) {
+async function fetchAggregatedForRange(userId, rangeStart, rangeEnd, platform) {
   // We need to join posts (for date/user filter) with metrics (for aggregation).
   // Supabase JS doesn't support aggregate functions natively via the client,
   // so we pull all metrics rows for the filtered posts and aggregate in JS.
@@ -32,6 +32,9 @@ async function fetchAggregatedForRange(userId, rangeStart, rangeEnd) {
 
   if (userId) {
     postsQuery = postsQuery.eq('user_id', userId);
+  }
+  if (platform) {
+    postsQuery = postsQuery.eq('platform', platform);
   }
 
   const { data: posts, error: postsError } = await postsQuery;
@@ -165,15 +168,17 @@ async function getYearView(userId, year) {
 // ---------------------------------------------------------------------------
 // getAdminOverview
 // ---------------------------------------------------------------------------
-async function getAdminOverview(year, month) {
+async function getAdminOverview(year, month, platform) {
   const { start, end } = monthRange(year, month);
 
   // Total posts and unique influencers this month
-  const { data: posts, error: postsError } = await supabase
+  let postsQuery = supabase
     .from('posts')
     .select('id, user_id')
     .gte('published_at', start)
     .lt('published_at', end);
+  if (platform) postsQuery = postsQuery.eq('platform', platform);
+  const { data: posts, error: postsError } = await postsQuery;
 
   if (postsError) throw new Error(postsError.message);
 
@@ -184,11 +189,11 @@ async function getAdminOverview(year, month) {
 
   // Aggregate metrics across all posts this month
   const aggregate = posts && posts.length > 0
-    ? await fetchAggregatedForRange(null, start, end)
+    ? await fetchAggregatedForRange(null, start, end, platform)
     : null;
 
   // Totals by post type (feed vs story) this month
-  const countsByUser = await countPostTypesByUser(start, end);
+  const countsByUser = await countPostTypesByUser(start, end, platform);
   let totalFeed = 0;
   let totalStories = 0;
   for (const uid of Object.keys(countsByUser)) {
@@ -212,12 +217,13 @@ async function getAdminOverview(year, month) {
 // Returns { [userId]: { feed, story } }. Degrades gracefully to all-feed if
 // the post_type column does not exist yet (migration 003 not run).
 // ---------------------------------------------------------------------------
-async function countPostTypesByUser(rangeStart, rangeEnd) {
-  const { data, error } = await supabase
+async function countPostTypesByUser(rangeStart, rangeEnd, platform) {
+  const withPlatform = (q) => (platform ? q.eq('platform', platform) : q);
+  const { data, error } = await withPlatform(supabase
     .from('posts')
     .select('user_id, post_type')
     .gte('published_at', rangeStart)
-    .lt('published_at', rangeEnd);
+    .lt('published_at', rangeEnd));
 
   const result = {};
 
@@ -226,11 +232,11 @@ async function countPostTypesByUser(rangeStart, rangeEnd) {
     if (!/post_type/i.test(error.message)) {
       throw new Error(error.message);
     }
-    const { data: fallback, error: fbErr } = await supabase
+    const { data: fallback, error: fbErr } = await withPlatform(supabase
       .from('posts')
       .select('user_id')
       .gte('published_at', rangeStart)
-      .lt('published_at', rangeEnd);
+      .lt('published_at', rangeEnd));
     if (fbErr) throw new Error(fbErr.message);
     for (const p of fallback || []) {
       if (!result[p.user_id]) result[p.user_id] = { feed: 0, story: 0 };
@@ -250,7 +256,7 @@ async function countPostTypesByUser(rangeStart, rangeEnd) {
 // ---------------------------------------------------------------------------
 // getInfluencersRanking
 // ---------------------------------------------------------------------------
-async function getInfluencersRanking(year, month, sortBy = 'reach') {
+async function getInfluencersRanking(year, month, sortBy = 'reach', platform) {
   const { start, end } = monthRange(year, month);
 
   // Get all active influencers
@@ -263,12 +269,12 @@ async function getInfluencersRanking(year, month, sortBy = 'reach') {
   if (usersError) throw new Error(usersError.message);
 
   // Count posts by type (feed vs story) per influencer for this range.
-  const countsByUser = await countPostTypesByUser(start, end);
+  const countsByUser = await countPostTypesByUser(start, end, platform);
 
   const ranking = [];
 
   for (const influencer of influencers) {
-    const data = await fetchAggregatedForRange(influencer.id, start, end);
+    const data = await fetchAggregatedForRange(influencer.id, start, end, platform);
     const counts = countsByUser[influencer.id] || { feed: 0, story: 0 };
     ranking.push({
       user: {
@@ -299,15 +305,43 @@ async function getInfluencersRanking(year, month, sortBy = 'reach') {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: apply the period filters shared by the admin listing and the CSV
+// export. Month+year → that month; year alone → the whole year; startDate /
+// endDate are applied on top (they used to be silently ignored whenever a
+// year was selected, and a year without a month filtered nothing at all).
+// ---------------------------------------------------------------------------
+function applyPeriodFilters(q, { year, month, startDate, endDate }) {
+  if (year && month) {
+    const { start, end } = monthRange(year, month);
+    q = q.gte('published_at', start).lt('published_at', end);
+  } else if (year) {
+    const y = parseInt(year, 10);
+    q = q.gte('published_at', `${y}-01-01`).lt('published_at', `${y + 1}-01-01`);
+  }
+  if (startDate) q = q.gte('published_at', startDate);
+  if (endDate) q = q.lte('published_at', endDate);
+  return q;
+}
+
+// ---------------------------------------------------------------------------
 // getAllPostsFiltered
 // ---------------------------------------------------------------------------
 // Sort options exposed in the "Todos os Posts" admin screen.
+// Metric sorts can't be pushed down to PostgREST: ordering with
+// `foreignTable: 'metrics'` only sorts the embedded metrics array, never the
+// posts themselves — so those are sorted in JS over the filtered set.
 const POST_SORT_OPTIONS = {
-  best_views: { column: 'impressions', foreignTable: 'metrics' },
-  best_reach: { column: 'reach', foreignTable: 'metrics' },
-  best_likes: { column: 'likes', foreignTable: 'metrics' },
+  best_views: { metric: 'impressions' },
+  best_reach: { metric: 'reach' },
+  best_likes: { metric: 'likes' },
   recent: { column: 'uploaded_at' }, // system registration date, not published_at
 };
+
+function metricValue(post, field) {
+  const m = Array.isArray(post.metrics) ? post.metrics[0] : post.metrics;
+  const v = m ? m[field] : null;
+  return v == null ? null : Number(v);
+}
 
 async function getAllPostsFiltered({
   influencerId,
@@ -329,19 +363,19 @@ async function getAllPostsFiltered({
 
   const sortOption = POST_SORT_OPTIONS[sortBy];
 
+  const sortsByMetric = !!sortOption?.metric;
+
   // Build the query for a given select string, re-applying all filters.
   const build = (selectStr) => {
     let q = supabase
       .from('posts')
-      .select(selectStr, { count: 'exact' })
-      .range(from, to);
+      .select(selectStr, { count: 'exact' });
 
-    if (sortOption) {
-      q = q.order(sortOption.column, {
-        ascending: false,
-        nullsFirst: false,
-        ...(sortOption.foreignTable ? { foreignTable: sortOption.foreignTable } : {}),
-      });
+    // Metric sorts need the whole filtered set (paginated after sorting).
+    if (!sortsByMetric) q = q.range(from, to);
+
+    if (sortOption?.column) {
+      q = q.order(sortOption.column, { ascending: false, nullsFirst: false });
     } else {
       q = q.order('published_at', { ascending: false });
     }
@@ -350,14 +384,7 @@ async function getAllPostsFiltered({
     if (platform) q = q.eq('platform', platform);
     if (postType) q = q.eq('post_type', postType);
 
-    if (year && month) {
-      const { start, end } = monthRange(year, month);
-      q = q.gte('published_at', start).lt('published_at', end);
-    } else {
-      if (startDate) q = q.gte('published_at', startDate);
-      if (endDate) q = q.lte('published_at', endDate);
-    }
-    return q;
+    return applyPeriodFilters(q, { year, month, startDate, endDate });
   };
 
   const idBase = 'id, title, platform, published_at, uploaded_at, image_url, confirmed_by_user, ai_raw_response';
@@ -386,8 +413,23 @@ async function getAllPostsFiltered({
 
   if (error) throw new Error(error.message);
 
+  let posts = data || [];
+  if (sortsByMetric) {
+    const field = sortOption.metric;
+    posts = [...posts]
+      .sort((a, b) => {
+        const av = metricValue(a, field);
+        const bv = metricValue(b, field);
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1; // nulls last
+        if (bv == null) return -1;
+        return bv - av;
+      })
+      .slice(from, to + 1);
+  }
+
   return {
-    posts: data || [],
+    posts,
     total: count || 0,
     page: parseInt(page, 10),
     pageSize: parseInt(pageSize, 10),
@@ -403,6 +445,7 @@ async function exportPostsCSV({
   year,
   month,
   platform,
+  postType,
   startDate,
   endDate,
 } = {}) {
@@ -417,14 +460,8 @@ async function exportPostsCSV({
 
   if (influencerId) query = query.eq('user_id', influencerId);
   if (platform) query = query.eq('platform', platform);
-
-  if (year && month) {
-    const { start, end } = monthRange(year, month);
-    query = query.gte('published_at', start).lt('published_at', end);
-  } else {
-    if (startDate) query = query.gte('published_at', startDate);
-    if (endDate) query = query.lte('published_at', endDate);
-  }
+  if (postType) query = query.eq('post_type', postType);
+  query = applyPeriodFilters(query, { year, month, startDate, endDate });
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
