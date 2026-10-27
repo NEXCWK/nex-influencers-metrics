@@ -2,17 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../api.js';
 import MetricCard from '../components/MetricCard.jsx';
-import { IconTicket, IconKey } from '../components/Icons.jsx';
+import { IconTicket, IconKey, IconCheck, IconAlert, IconMinus, IconPlus } from '../components/Icons.jsx';
+import { PageHeader, Segmented, MonthSelect, YearSelect, EmptyState, Skeleton, SectionHeader } from '../components/ui.jsx';
+import { MONTHS, currentMonth, currentYear } from '../utils/format.js';
 import styles from './Coupons.module.css';
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-];
-const CURRENT_YEAR = new Date().getFullYear();
-const CURRENT_MONTH = new Date().getMonth() + 1;
-
-function Stepper({ value, onChange, disabled }) {
+function Stepper({ value, onChange, disabled, label }) {
   return (
     <div className={styles.stepper}>
       <button
@@ -20,19 +15,19 @@ function Stepper({ value, onChange, disabled }) {
         className={styles.stepperBtn}
         onClick={() => onChange(Math.max(0, (parseInt(value, 10) || 0) - 1))}
         disabled={disabled || parseInt(value, 10) <= 0}
-        aria-label="Diminuir"
+        aria-label={`Diminuir ${label}`}
       >
-        -
+        <IconMinus size={14} />
       </button>
-      <span className={styles.stepperVal}>{value ?? 0}</span>
+      <span className={styles.stepperVal} aria-live="polite">{value ?? 0}</span>
       <button
         type="button"
         className={styles.stepperBtn}
         onClick={() => onChange((parseInt(value, 10) || 0) + 1)}
         disabled={disabled}
-        aria-label="Aumentar"
+        aria-label={`Aumentar ${label}`}
       >
-        +
+        <IconPlus size={14} />
       </button>
     </div>
   );
@@ -46,13 +41,14 @@ export default function Coupons() {
 
 function AdminCoupons() {
   const [view, setView] = useState('month'); // 'month' | 'year'
-  const [month, setMonth] = useState(CURRENT_MONTH);
-  const [year, setYear] = useState(CURRENT_YEAR);
+  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(currentYear);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [savedId, setSavedId] = useState(null);
+  const [failedId, setFailedId] = useState(null);
 
   const rowsRef = useRef([]);
   const saveTimers = useRef({});
@@ -64,6 +60,7 @@ function AdminCoupons() {
   const saveRow = useCallback(async (row) => {
     setSavingId(row.user_id);
     setSavedId(null);
+    setFailedId((id) => (id === row.user_id ? null : id));
     try {
       await api.put(`/coupons/admin/${row.user_id}`, {
         year,
@@ -75,7 +72,9 @@ function AdminCoupons() {
       setSavedId(row.user_id);
       setTimeout(() => setSavedId((id) => id === row.user_id ? null : id), 2000);
     } catch {
-      // silent fail — user can retry by changing a value again
+      // Flag the row so the admin knows the value wasn't persisted; changing
+      // any value again retries the save.
+      setFailedId(row.user_id);
     } finally {
       setSavingId((id) => id === row.user_id ? null : id);
     }
@@ -86,6 +85,7 @@ function AdminCoupons() {
     saveTimers.current = {};
     setLoading(true);
     setError('');
+    setFailedId(null);
     try {
       const res = view === 'year'
         ? await api.get('/coupons/admin/annual', { params: { year } })
@@ -111,9 +111,6 @@ function AdminCoupons() {
     }, 800);
   };
 
-  const yearOptions = [];
-  for (let y = CURRENT_YEAR; y >= CURRENT_YEAR - 3; y--) yearOptions.push(y);
-
   const totals = rows.reduce(
     (acc, r) => ({
       gallery: acc.gallery + (Number(r.gallery_count) || 0),
@@ -123,134 +120,122 @@ function AdminCoupons() {
     { gallery: 0, atrium: 0, access: 0 },
   );
 
+  const periodLabel = view === 'year' ? String(year) : `${MONTHS[month - 1]}/${year}`;
+
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Cupons</h1>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {view === 'month' && (
-            <select className="form-control" style={{ width: 'auto' }} value={month} onChange={(e) => setMonth(Number(e.target.value))}>
-              {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
-            </select>
-          )}
-          <select className="form-control" style={{ width: 'auto' }} value={year} onChange={(e) => setYear(Number(e.target.value))}>
-            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="tab-bar" style={{ marginBottom: 4 }}>
-        <button className={`tab-btn ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>Mensal</button>
-        <button className={`tab-btn ${view === 'year' ? 'active' : ''}`} onClick={() => setView('year')}>Anual</button>
-      </div>
-
-      <p className={styles.subtitle}>
-        {view === 'year'
+    <>
+      <PageHeader
+        crumbs={[{ label: 'Cupons' }]}
+        title="Contagem mensal"
+        subtitle={view === 'year'
           ? `Total de cupons utilizados somando todos os meses de ${year}.`
-          : `Registre quantas vezes cada cupom foi utilizado em ${MONTHS[month - 1]}/${year}.`}
-      </p>
-
-      {!loading && rows.length > 0 && (
-        <div className={styles.totalsRow}>
-          <div className={styles.totalCard}>
-            <span className={styles.totalLabel}>Total Gallery</span>
-            <span className={styles.totalValue}>{totals.gallery}</span>
-          </div>
-          <div className={styles.totalCard}>
-            <span className={styles.totalLabel}>Total Atrium</span>
-            <span className={styles.totalValue}>{totals.atrium}</span>
-          </div>
-          <div className={styles.totalCard}>
-            <span className={styles.totalLabel}>Total Access</span>
-            <span className={styles.totalValue}>{totals.access}</span>
-          </div>
-        </div>
-      )}
+          : `Registre quantas vezes cada cupom foi utilizado em ${MONTHS[month - 1]}/${year}. As alterações são salvas automaticamente.`}
+        actions={(
+          <>
+            <Segmented
+              ariaLabel="Visualização"
+              value={view}
+              onChange={setView}
+              options={[{ value: 'month', label: 'Mensal' }, { value: 'year', label: 'Anual' }]}
+            />
+            {view === 'month' && <MonthSelect value={month} onChange={setMonth} style={{ width: 'auto' }} />}
+            <YearSelect value={year} onChange={setYear} style={{ width: 'auto' }} />
+          </>
+        )}
+      />
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      <div className="metrics-grid" style={{ marginBottom: 24 }}>
+        {loading ? (
+          <><Skeleton height={110} /><Skeleton height={110} /><Skeleton height={110} /></>
+        ) : (
+          <>
+            <MetricCard label="Assinatura Gallery" value={totals.gallery} unit="raw" icon={<IconTicket size={16} />} hint={periodLabel} />
+            <MetricCard label="Assinatura Atrium" value={totals.atrium} unit="raw" icon={<IconTicket size={16} />} hint={periodLabel} />
+            <MetricCard label="Cupom Access" value={totals.access} unit="raw" icon={<IconKey size={16} />} hint={periodLabel} highlight />
+          </>
+        )}
+      </div>
+
       {loading ? (
-        <div className="skeleton" style={{ height: 300, borderRadius: 16 }} />
+        <Skeleton height={300} />
       ) : (
         <div className="table-container">
           <table>
             <thead>
               <tr>
                 <th>Influenciador</th>
-                <th style={{ textAlign: 'center' }}>Assinatura Gallery</th>
-                <th style={{ textAlign: 'center' }}>Assinatura Atrium</th>
-                <th style={{ textAlign: 'center' }}>Cupom Access</th>
-                {view === 'month' && <th style={{ width: 80 }}></th>}
+                <th className="text-center">Assinatura Gallery</th>
+                <th className="text-center">Assinatura Atrium</th>
+                <th className="text-center">Cupom Access</th>
+                {view === 'month' && <th style={{ width: 110 }}><span className="sr-only">Status</span></th>}
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={view === 'month' ? 5 : 4} style={{ textAlign: 'center', color: 'var(--ink-muted)', padding: 32 }}>Nenhum influenciador ativo.</td></tr>
-              ) : rows.map((row) => (
-                <tr key={row.user_id}>
-                  <td style={{ fontWeight: 600 }}>{row.display_name || row.username}</td>
-                  {view === 'year' ? (
-                    <>
-                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.gallery_count ?? 0}</td>
-                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.atrium_count ?? 0}</td>
-                      <td style={{ textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: 700 }}>{row.access_count ?? 0}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td style={{ textAlign: 'center' }}>
-                        <Stepper
-                          value={row.gallery_count ?? 0}
-                          onChange={(v) => updateField(row.user_id, 'gallery_count', v)}
-                          disabled={savingId === row.user_id}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <Stepper
-                          value={row.atrium_count ?? 0}
-                          onChange={(v) => updateField(row.user_id, 'atrium_count', v)}
-                          disabled={savingId === row.user_id}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <Stepper
-                          value={row.access_count ?? 0}
-                          onChange={(v) => updateField(row.user_id, 'access_count', v)}
-                          disabled={savingId === row.user_id}
-                        />
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {savingId === row.user_id && (
-                          <span className={styles.savingDot} title="Salvando..." />
-                        )}
-                        {savedId === row.user_id && savingId !== row.user_id && (
-                          <span className={styles.savedCheck}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12"/>
-                            </svg>
-                            Salvo
-                          </span>
-                        )}
-                      </td>
-                    </>
-                  )}
+                <tr>
+                  <td colSpan={view === 'month' ? 5 : 4} style={{ padding: 0 }}>
+                    <EmptyState icon={<IconTicket size={20} />} title="Nenhum influenciador ativo" />
+                  </td>
                 </tr>
-              ))}
+              ) : rows.map((row) => {
+                const name = row.display_name || row.username;
+                return (
+                  <tr key={row.user_id}>
+                    <td className="cell-title">{name}</td>
+                    {view === 'year' ? (
+                      <>
+                        <td className="text-center tabular strong">{row.gallery_count ?? 0}</td>
+                        <td className="text-center tabular strong">{row.atrium_count ?? 0}</td>
+                        <td className="text-center tabular strong">{row.access_count ?? 0}</td>
+                      </>
+                    ) : (
+                      <>
+                        {['gallery_count', 'atrium_count', 'access_count'].map((field) => (
+                          <td key={field} className="text-center">
+                            <Stepper
+                              label={`${field.replace('_count', '')} de ${name}`}
+                              value={row[field] ?? 0}
+                              onChange={(v) => updateField(row.user_id, field, v)}
+                              disabled={savingId === row.user_id}
+                            />
+                          </td>
+                        ))}
+                        <td>
+                          {savingId === row.user_id && (
+                            <span className={styles.status}><span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} /> Salvando</span>
+                          )}
+                          {savedId === row.user_id && savingId !== row.user_id && (
+                            <span className={`${styles.status} ${styles.saved}`}><IconCheck size={13} /> Salvo</span>
+                          )}
+                          {failedId === row.user_id && savingId !== row.user_id && (
+                            <span className={`${styles.status} ${styles.failed}`} title="Não foi possível salvar. Altere o valor novamente para tentar de novo.">
+                              <IconAlert size={13} /> Não salvo
+                            </span>
+                          )}
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
             {rows.length > 0 && (
               <tfoot>
-                <tr className={styles.tableFooter}>
+                <tr>
                   <td>Total</td>
-                  <td style={{ textAlign: 'center' }}>{totals.gallery}</td>
-                  <td style={{ textAlign: 'center' }}>{totals.atrium}</td>
-                  <td style={{ textAlign: 'center' }}>{totals.access}</td>
-                  {view === 'month' && <td></td>}
+                  <td className="text-center tabular">{totals.gallery}</td>
+                  <td className="text-center tabular">{totals.atrium}</td>
+                  <td className="text-center tabular">{totals.access}</td>
+                  {view === 'month' && <td />}
                 </tr>
               </tfoot>
             )}
           </table>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -259,11 +244,13 @@ function InfluencerCoupons() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const month = currentMonth();
+  const year = currentYear();
 
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      api.get('/coupons', { params: { month: CURRENT_MONTH, year: CURRENT_YEAR } }),
+      api.get('/coupons', { params: { month, year } }),
       api.get('/coupons/history'),
     ])
       .then(([curRes, histRes]) => {
@@ -274,62 +261,60 @@ function InfluencerCoupons() {
       .catch(() => mounted && setError('Erro ao carregar seus cupons.'))
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, []);
+  }, [month, year]);
 
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Meus Cupons</h1>
-      </div>
-
-      <p className={styles.subtitle}>
-        Cupons contabilizados para o seu perfil em {MONTHS[CURRENT_MONTH - 1]}/{CURRENT_YEAR}.
-      </p>
+    <>
+      <PageHeader
+        title="Meus cupons"
+        subtitle={`Cupons contabilizados para o seu perfil em ${MONTHS[month - 1]}/${year}.`}
+      />
 
       {error && <div className="alert alert-error">{error}</div>}
 
       <div className="metrics-grid">
         {loading ? (
-          <>
-            <div className="skeleton" style={{ height: 110, borderRadius: 16 }} />
-            <div className="skeleton" style={{ height: 110, borderRadius: 16 }} />
-            <div className="skeleton" style={{ height: 110, borderRadius: 16 }} />
-          </>
+          <><Skeleton height={110} /><Skeleton height={110} /><Skeleton height={110} /></>
         ) : (
           <>
-            <MetricCard label="Assinatura Gallery" value={current?.gallery_count ?? 0} icon={<IconTicket size={16} />} />
-            <MetricCard label="Assinatura Atrium" value={current?.atrium_count ?? 0} icon={<IconTicket size={16} />} />
-            <MetricCard label="Cupom Access" value={current?.access_count ?? 0} icon={<IconKey size={16} />} />
+            <MetricCard label="Assinatura Gallery" value={current?.gallery_count ?? 0} unit="raw" icon={<IconTicket size={16} />} />
+            <MetricCard label="Assinatura Atrium" value={current?.atrium_count ?? 0} unit="raw" icon={<IconTicket size={16} />} />
+            <MetricCard label="Cupom Access" value={current?.access_count ?? 0} unit="raw" icon={<IconKey size={16} />} highlight />
           </>
         )}
       </div>
 
-      <div style={{ marginTop: 8 }}>
-        <h2 className="section-title">Historico mensal</h2>
+      <section className="section">
+        <SectionHeader title="Histórico mensal" />
         {loading ? (
-          <div className="skeleton" style={{ height: 200, borderRadius: 16 }} />
+          <Skeleton height={200} />
         ) : history.length === 0 ? (
-          <div className={styles.empty}>Nenhum cupom contabilizado ainda.</div>
+          <EmptyState
+            bordered
+            icon={<IconTicket size={20} />}
+            title="Nenhum cupom contabilizado ainda"
+            text="Quando a equipe Nex registrar o uso dos seus cupons, o histórico aparece aqui."
+          />
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Mes</th>
-                  <th>Assinatura Gallery</th>
-                  <th>Assinatura Atrium</th>
-                  <th>Cupom Access</th>
-                  <th>Total</th>
+                  <th>Mês</th>
+                  <th className="num">Assinatura Gallery</th>
+                  <th className="num">Assinatura Atrium</th>
+                  <th className="num">Cupom Access</th>
+                  <th className="num">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((h) => (
                   <tr key={`${h.year}-${h.month}`}>
-                    <td style={{ fontWeight: 600 }}>{MONTHS[h.month - 1]}/{h.year}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{h.gallery_count ?? 0}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{h.atrium_count ?? 0}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{h.access_count ?? 0}</td>
-                    <td style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                    <td className="cell-title">{MONTHS[h.month - 1]}/{h.year}</td>
+                    <td className="num">{h.gallery_count ?? 0}</td>
+                    <td className="num">{h.atrium_count ?? 0}</td>
+                    <td className="num">{h.access_count ?? 0}</td>
+                    <td className="num strong">
                       {(h.gallery_count ?? 0) + (h.atrium_count ?? 0) + (h.access_count ?? 0)}
                     </td>
                   </tr>
@@ -338,7 +323,7 @@ function InfluencerCoupons() {
             </table>
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </>
   );
 }

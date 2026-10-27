@@ -4,61 +4,100 @@
   left: 0;
   width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   background: var(--surface);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  z-index: 200;
 }
 
 /* ── Logo ─────────────────────────────────────────────────────────────────── */
 .logo {
-  padding: 20px 20px 18px;
-  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 20px 18px;
+}
+
+.logoLink {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
+  text-decoration: none;
 }
 
 .logoImg {
-  height: 28px;
+  height: 26px;
   width: auto;
   object-fit: contain;
   object-position: left;
 }
 
 .logoSub {
-  font-size: 9.5px;
-  font-family: var(--font);
-  font-weight: 600;
+  font-size: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
   color: var(--ink-muted);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
+.drawerClose {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawerClose:hover { background: var(--surface-muted); color: var(--ink); }
+
 /* ── Navigation ───────────────────────────────────────────────────────────── */
-.navList {
-  list-style: none;
-  padding: 8px 0;
+.navScroll {
   flex: 1;
   overflow-y: auto;
+  padding: 4px 12px 12px;
+}
+
+.group + .group { margin-top: 18px; }
+
+.groupTitle {
+  padding: 0 10px 6px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.navList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .navLink {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 12px;
-  margin: 1px 8px;
-  border-radius: 9px;
-  font-size: 13.5px;
-  font-family: var(--font);
-  font-weight: 400;
-  color: var(--ink-muted);
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--ink-soft);
   text-decoration: none;
   transition: background 0.12s, color 0.12s;
-  border-left: 3px solid transparent;
-  padding-left: 9px;
 }
 
 .navLink:hover {
@@ -67,16 +106,22 @@
 }
 
 .navLinkActive {
-  background: var(--ink);
-  color: #ffffff;
-  font-weight: 600;
-  border-left: 3px solid var(--accent);
+  background: var(--surface-muted);
+  color: var(--ink);
 }
 
-.navLinkActive:hover {
-  background: var(--ink-soft);
-  color: #ffffff;
+.navLinkActive::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
 }
+
+.navLinkActive .navIcon { color: var(--ink); }
 
 .navIcon {
   display: flex;
@@ -84,17 +129,37 @@
   justify-content: center;
   width: 18px;
   flex-shrink: 0;
-  color: inherit;
+  color: var(--ink-muted);
   transition: color 0.12s;
 }
 
-.navLinkActive .navIcon {
-  color: var(--accent);
+.navLink:hover .navIcon { color: var(--ink); }
+
+/* Primary call-to-action (influencer: "Enviar posts") */
+.navCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s;
 }
+
+.navCta:hover { background: var(--accent-hover); }
+.navCta .navIcon { color: #000; }
+.navCtaActive { background: var(--accent-hover); }
 
 /* ── Bottom section ───────────────────────────────────────────────────────── */
 .bottomSection {
-  padding: 12px 12px 14px;
+  padding: 10px 12px 14px;
   border-top: 1px solid var(--border);
   position: relative;
 }
@@ -103,8 +168,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 8px;
-  border-radius: 9px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
   width: 100%;
   background: none;
   border: none;
@@ -113,34 +178,7 @@
   transition: background 0.12s;
 }
 
-.userTrigger:hover {
-  background: var(--surface-muted);
-}
-
-.userAvatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--ink);
-  font-weight: 800;
-  font-size: 12px;
-  font-family: var(--font);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255, 212, 0, 0.3);
-}
-
-.userAvatarImg {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(255, 212, 0, 0.3);
-}
+.userTrigger:hover { background: var(--surface-muted); }
 
 .userDetails {
   display: flex;
@@ -151,9 +189,9 @@
 }
 
 .userName {
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 700;
-  font-family: var(--font);
+  font-family: var(--font-display);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -162,69 +200,139 @@
 }
 
 .userRole {
-  font-size: 10.5px;
-  font-family: var(--font);
-  font-weight: 400;
+  font-size: 12px;
   color: var(--ink-muted);
 }
 
 .chevron {
+  display: flex;
   color: var(--ink-muted);
   flex-shrink: 0;
   transition: transform 0.15s;
 }
 
-.chevronOpen {
-  transform: rotate(180deg);
-}
+.chevronOpen { transform: rotate(180deg); }
 
 /* ── Avatar dropdown menu ─────────────────────────────────────────────────── */
 .avatarMenu {
   position: absolute;
   bottom: calc(100% + 6px);
-  left: 8px;
-  right: 8px;
+  left: 12px;
+  right: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-modal);
-  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  padding: 6px;
   animation: cardEnter 150ms ease-out both;
-  z-index: 200;
+  z-index: 210;
 }
 
 .avatarMenuItem {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 9px 10px;
   background: none;
   border: none;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 13.5px;
-  font-family: var(--font);
-  font-weight: 500;
+  font-size: 14px;
+  font-family: var(--font-display);
+  font-weight: 600;
   text-align: left;
   color: var(--ink);
-  transition: background 0.1s;
   text-decoration: none;
 }
 
-.avatarMenuItem:hover {
-  background: var(--surface-muted);
-}
+.avatarMenuItem:hover { background: var(--surface-muted); }
 
 .avatarMenuDivider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 0;
+  margin: 6px 0;
 }
 
-.avatarMenuLogout {
-  color: var(--danger);
+.avatarMenuLogout { color: var(--danger); }
+.avatarMenuLogout:hover { background: var(--danger-bg); }
+
+/* ── Mobile top bar + drawer ──────────────────────────────────────────────── */
+.topbar {
+  display: none;
 }
 
-.avatarMenuLogout:hover {
-  background: var(--danger-bg);
+.scrim {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--topbar-height);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: saturate(180%) blur(8px);
+    -webkit-backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--border);
+    z-index: 150;
+  }
+
+  .topbarBtn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ink);
+  }
+
+  .topbarBtn:hover { background: var(--surface-muted); }
+
+  .topbarLogo img {
+    height: 22px;
+    display: block;
+  }
+
+  .topbarAvatar {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 220ms var(--ease);
+    box-shadow: none;
+    width: min(300px, 86vw);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+    box-shadow: var(--shadow-modal);
+  }
+
+  .drawerClose { display: flex; }
+
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 190;
+    animation: fadeIn 150ms ease-out both;
+  }
 }

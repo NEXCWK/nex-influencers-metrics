@@ -1,158 +1,56 @@
-.subtitle {
-  font-size: 14px;
-  color: var(--ink-muted);
-  font-family: var(--font);
-  margin-bottom: 20px;
-}
-
-.empty {
-  text-align: center;
-  padding: 40px 16px;
-  color: var(--ink-muted);
-  font-size: 14px;
-  font-family: var(--font);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-/* ── Totals row ─────────────────────────────────── */
-.totalsRow {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.totalCard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: var(--shadow);
-}
-
-.totalLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-muted);
-  font-family: var(--font);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.totalValue {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--ink);
-  font-family: var(--font);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-/* ── Stepper ─────────────────────────────────────── */
 .stepper {
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  overflow: hidden;
   background: var(--surface);
-  transition: border-color 0.15s;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .stepper:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-ring);
 }
 
 .stepperBtn {
   width: 32px;
-  height: 36px;
+  height: 32px;
   border: none;
-  background: var(--surface-muted);
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 700;
+  background: transparent;
   color: var(--ink-soft);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s, color 0.1s;
-  flex-shrink: 0;
-  line-height: 1;
-  user-select: none;
+  transition: background 0.12s, color 0.12s;
 }
 
-.stepperBtn:hover:not(:disabled) {
-  background: var(--accent-soft);
-  color: var(--ink);
-}
-
-.stepperBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+.stepperBtn:hover:not(:disabled) { background: var(--accent); color: #000; }
+.stepperBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .stepperVal {
-  min-width: 44px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-width: 40px;
+  text-align: center;
+  font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 600;
-  font-family: var(--font);
-  color: var(--ink);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  background: var(--surface);
   border-left: 1px solid var(--border);
   border-right: 1px solid var(--border);
-  padding: 0 8px;
+  line-height: 32px;
 }
 
-/* ── Save indicator ──────────────────────────────── */
-.savedCheck {
+.status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  font-family: var(--font-display);
   font-size: 12px;
   font-weight: 600;
-  font-family: var(--font);
-  color: var(--success);
-  animation: fadeIn 200ms ease;
+  color: var(--ink-muted);
+  white-space: nowrap;
 }
 
-.savingDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ink-muted);
-  animation: pulse 1s ease infinite;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50%       { opacity: 1; }
-}
-
-/* ── Table footer ────────────────────────────────── */
-.tableFooter td {
-  background: var(--surface-muted);
-  font-weight: 700;
-  font-size: 13px;
-  color: var(--ink-soft);
-  font-family: var(--font);
-  border-top: 2px solid var(--border);
-  font-variant-numeric: tabular-nums;
-  position: sticky;
-  bottom: 0;
-}
+.saved { color: var(--success); }
+.failed { color: var(--danger); cursor: help; }

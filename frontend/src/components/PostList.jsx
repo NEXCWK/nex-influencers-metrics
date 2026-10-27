@@ -1,53 +1,19 @@
 import React from 'react';
-import { FormatBadge, MetricCell, PostLink } from './PostBadges.jsx';
-import styles from './PostList.module.css';
+import { FormatBadge, MetricCell, PostLink, PlatformLabel, PostThumb } from './PostBadges.jsx';
+import { EmptyState } from './ui.jsx';
+import { IconImage, IconPencil } from './Icons.jsx';
+import { formatCompact, formatDate } from '../utils/format.js';
 
-const PLATFORM_LABELS = {
-  instagram: 'Instagram',
-  tiktok: 'TikTok',
-  youtube: 'YouTube',
-  linkedin: 'LinkedIn',
-};
-
-function PlatformBadge({ platform }) {
-  const label = PLATFORM_LABELS[platform] || platform;
-  return (
-    <span className={`${styles.platformBadge} platform-${platform}`}>
-      {label}
-    </span>
-  );
-}
-
-function formatNum(value) {
-  if (value === null || value === undefined) return '—';
-  const num = parseFloat(value);
-  if (isNaN(num)) return '—';
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace('.', ',')}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1).replace('.', ',')}K`;
-  return num.toLocaleString('pt-BR');
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d)) return dateStr;
-  return d.toLocaleDateString('pt-BR');
-}
-
-export default function PostList({ posts = [], onPostClick, onEdit }) {
+export default function PostList({ posts = [], onPostClick, onEdit, emptyAction }) {
   if (!posts.length) {
     return (
-      <div style={{
-        textAlign: 'center',
-        padding: '40px 16px',
-        color: '#888',
-        fontSize: 14,
-        fontFamily: 'Arial, sans-serif',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-      }}>
-        Nenhum post encontrado para o período selecionado.
-      </div>
+      <EmptyState
+        bordered
+        icon={<IconImage size={20} />}
+        title="Nenhum post neste período"
+        text="Os posts enviados aparecem aqui com as métricas extraídas dos prints."
+        action={emptyAction}
+      />
     );
   }
 
@@ -57,59 +23,45 @@ export default function PostList({ posts = [], onPostClick, onEdit }) {
         <thead>
           <tr>
             <th>Post</th>
-            <th>Plataforma</th>
+            <th className="hide-sm">Plataforma</th>
             <th>Formato</th>
-            <th>Data</th>
-            <th>Visualizações</th>
-            <th>Curtidas</th>
-            {onEdit && <th>Ações</th>}
+            <th className="hide-sm">Data</th>
+            <th className="num">Visualizações</th>
+            <th className="num">Curtidas</th>
+            {onEdit && <th className="num"><span className="sr-only">Ações</span></th>}
           </tr>
         </thead>
         <tbody>
           {posts.map((post) => (
             <tr
               key={post.id}
-              className={onPostClick ? styles.clickableRow : ''}
+              className={onPostClick ? 'clickable' : ''}
               onClick={onPostClick ? () => onPostClick(post) : undefined}
             >
               <td>
-                <div className={styles.postCell}>
-                  {post.image_url ? (
-                    <img
-                      src={post.image_url}
-                      alt={post.title || 'Post'}
-                      className={styles.thumbnail}
-                    />
-                  ) : (
-                    <div className={styles.thumbnailPlaceholder}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                        <circle cx="12" cy="13" r="4"/>
-                      </svg>
+                <div className="post-cell">
+                  <PostThumb src={post.image_url} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="cell-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {post.title || 'Post sem título'}
+                      <PostLink url={post.post_url} />
                     </div>
-                  )}
-                  <span className={styles.postTitle} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    {post.title || 'Post sem título'}
-                    <PostLink url={post.post_url} />
-                  </span>
+                  </div>
                 </div>
               </td>
-              <td>
-                <PlatformBadge platform={post.platform} />
-              </td>
+              <td className="hide-sm"><PlatformLabel platform={post.platform} /></td>
               <td><FormatBadge type={post.post_type} /></td>
-              <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-                {formatDate(post.published_date || post.created_at)}
-              </td>
-              <td><MetricCell value={post.impressions} format={formatNum} /></td>
-              <td><MetricCell value={post.likes} format={formatNum} /></td>
+              <td className="hide-sm muted nowrap">{formatDate(post.published_date || post.created_at)}</td>
+              <td className="num strong"><MetricCell value={post.impressions} format={formatCompact} /></td>
+              <td className="num"><MetricCell value={post.likes} format={formatCompact} /></td>
               {onEdit && (
-                <td>
+                <td className="num">
                   <button
+                    type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={(e) => { e.stopPropagation(); onEdit(post); }}
                   >
-                    Editar
+                    <IconPencil size={13} /> Editar
                   </button>
                 </td>
               )}

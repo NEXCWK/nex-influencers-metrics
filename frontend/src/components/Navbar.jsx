@@ -1,64 +1,118 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import {
-  IconGrid, IconUpload, IconTicket, IconUser,
-  IconList, IconUsers, IconMail, IconCamera, IconKey,
+  IconGrid, IconUpload, IconTicket, IconUser, IconList, IconUsers, IconMail,
+  IconCamera, IconKey, IconHome, IconMenu, IconX, IconLogOut, IconChevronUp,
+  IconBarChart,
 } from './Icons.jsx';
+import { Avatar } from './ui.jsx';
 import styles from './Navbar.module.css';
 
-const influencerLinks = [
-  { to: '/dashboard', label: 'Dashboard', icon: <IconGrid size={15} /> },
-  { to: '/upload', label: 'Novo Post', icon: <IconUpload size={15} /> },
-  { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
-  { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
+// Navigation is grouped by job-to-be-done so each role sees a short,
+// predictable menu. `cta` renders the item as the sidebar's primary button.
+const influencerNav = [
+  {
+    items: [
+      { to: '/upload', label: 'Enviar posts', icon: <IconUpload size={16} />, cta: true },
+      { to: '/dashboard', label: 'Início', icon: <IconHome size={16} /> },
+      { to: '/coupons', label: 'Meus cupons', icon: <IconTicket size={16} /> },
+      { to: '/profile', label: 'Meu perfil', icon: <IconUser size={16} /> },
+    ],
+  },
 ];
 
-const adminLinks = [
-  { to: '/admin', label: 'Visao Geral', icon: <IconGrid size={15} />, end: true },
-  { to: '/admin/posts', label: 'Todos os Posts', icon: <IconList size={15} /> },
-  { to: '/admin/users', label: 'Usuarios', icon: <IconUsers size={15} /> },
-  { to: '/admin/reports', label: 'Relatório Mensal', icon: <IconMail size={15} /> },
-  { to: '/admin/freelancers', label: 'Influenciadores Avulsos', icon: <IconCamera size={15} /> },
-  // Admins também têm o fluxo do influenciador (Dashboard pessoal + envio de
-  // posts/métricas) para testar o processo completo ponta a ponta.
-  { to: '/dashboard', label: 'Meu Dashboard', icon: <IconGrid size={15} /> },
-  { to: '/upload', label: 'Novo Post', icon: <IconUpload size={15} /> },
-  { to: '/coupons', label: 'Cupons', icon: <IconTicket size={15} /> },
-  { to: '/admin/coupon-partners', label: 'Registro de Cupons', icon: <IconKey size={15} /> },
-  { to: '/profile', label: 'Atualizar Perfil', icon: <IconUser size={15} /> },
+const adminNav = [
+  {
+    title: 'Desempenho',
+    items: [
+      { to: '/admin', label: 'Visão geral', icon: <IconGrid size={16} />, end: true },
+      { to: '/admin/posts', label: 'Posts', icon: <IconList size={16} /> },
+      { to: '/admin/reports', label: 'Relatório mensal', icon: <IconMail size={16} /> },
+    ],
+  },
+  {
+    title: 'Influenciadores',
+    items: [
+      { to: '/admin/freelancers', label: 'Avulsos', icon: <IconCamera size={16} /> },
+    ],
+  },
+  {
+    title: 'Cupons',
+    items: [
+      { to: '/admin/coupon-partners', label: 'Registro de cupons', icon: <IconKey size={16} /> },
+      { to: '/coupons', label: 'Contagem mensal', icon: <IconTicket size={16} /> },
+    ],
+  },
+  {
+    // Admins também têm o fluxo do influenciador (Dashboard pessoal + envio de
+    // posts/métricas) para testar o processo completo ponta a ponta.
+    title: 'Minha área',
+    items: [
+      { to: '/dashboard', label: 'Meu dashboard', icon: <IconBarChart size={16} /> },
+      { to: '/upload', label: 'Enviar posts', icon: <IconUpload size={16} /> },
+    ],
+  },
+  {
+    title: 'Administração',
+    items: [
+      { to: '/admin/users', label: 'Usuários', icon: <IconUsers size={16} /> },
+    ],
+  },
 ];
 
 // "Operação": papel restrito, enxerga apenas a aba Registro de Cupons no
 // menu principal (o link "Perfil" continua disponível no menu do avatar).
-const operacaoLinks = [
-  { to: '/admin/coupon-partners', label: 'Registro de Cupons', icon: <IconKey size={15} />, end: true },
+const operacaoNav = [
+  {
+    items: [
+      { to: '/admin/coupon-partners', label: 'Registro de cupons', icon: <IconKey size={16} />, end: true },
+    ],
+  },
 ];
 
-function IconChevronUp({ size = 12 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="18 15 12 9 6 15" />
-    </svg>
-  );
+const ROLE_LABEL = { admin: 'Administrador', operacao: 'Operação', influencer: 'Influenciador' };
+
+function homeFor(role) {
+  if (role === 'admin') return '/admin';
+  if (role === 'operacao') return '/admin/coupon-partners';
+  return '/dashboard';
 }
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef(null);
 
+  // Close the mobile drawer and the account menu on every navigation.
   useEffect(() => {
-    if (!menuOpen) return;
+    setDrawerOpen(false);
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
     const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
     };
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false); };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setDrawerOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [drawerOpen]);
 
   const handleLogout = () => {
     setMenuOpen(false);
@@ -66,84 +120,116 @@ export default function Navbar() {
     navigate('/login');
   };
 
-  const links = user?.role === 'admin'
-    ? adminLinks
+  const groups = user?.role === 'admin'
+    ? adminNav
     : user?.role === 'operacao'
-      ? operacaoLinks
-      : influencerLinks;
+      ? operacaoNav
+      : influencerNav;
+
+  const name = user?.display_name || user?.username;
 
   return (
-    <nav className={styles.sidebar}>
-      <div className={styles.logo}>
-        <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
-        <span className={styles.logoSub}>Influencer Metrics</span>
-      </div>
-
-      <ul className={styles.navList}>
-        {links.map((link) => (
-          <li key={link.to}>
-            <NavLink
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`
-              }
-            >
-              <span className={styles.navIcon}>{link.icon}</span>
-              {link.label}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-
-      <div className={styles.bottomSection} ref={menuRef}>
-        {menuOpen && (
-          <div className={styles.avatarMenu}>
-            <NavLink
-              to="/profile"
-              className={styles.avatarMenuItem}
-              onClick={() => setMenuOpen(false)}
-            >
-              <IconUser size={14} />
-              Perfil
-            </NavLink>
-            <hr className={styles.avatarMenuDivider} />
-            <button className={`${styles.avatarMenuItem} ${styles.avatarMenuLogout}`} onClick={handleLogout}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Sair
-            </button>
-          </div>
-        )}
-
+    <>
+      {/* Mobile top bar */}
+      <header className={styles.topbar}>
         <button
-          className={styles.userTrigger}
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-expanded={menuOpen}
+          type="button"
+          className={styles.topbarBtn}
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Abrir menu"
+          aria-expanded={drawerOpen}
         >
-          {user?.avatar_url ? (
-            <img src={user.avatar_url} alt="" className={styles.userAvatarImg} />
-          ) : (
-            <div className={styles.userAvatar}>
-              {(user?.display_name || user?.username || 'U')[0].toUpperCase()}
+          <IconMenu size={20} />
+        </button>
+        <Link to={homeFor(user?.role)} className={styles.topbarLogo} aria-label="Início">
+          <img src="/images/logo-nex-preto.png" alt="Nex" />
+        </Link>
+        <Link to="/profile" className={styles.topbarAvatar} aria-label="Meu perfil">
+          <Avatar src={user?.avatar_url} name={name} size={30} variant="accent" />
+        </Link>
+      </header>
+
+      {drawerOpen && <div className={styles.scrim} onClick={() => setDrawerOpen(false)} aria-hidden="true" />}
+
+      <nav className={`${styles.sidebar} ${drawerOpen ? styles.sidebarOpen : ''}`} aria-label="Menu principal">
+        <div className={styles.logo}>
+          <Link to={homeFor(user?.role)} className={styles.logoLink}>
+            <img src="/images/logo-nex-preto.png" alt="Nex" className={styles.logoImg} />
+            <span className={styles.logoSub}>Influencer Metrics</span>
+          </Link>
+          <button
+            type="button"
+            className={styles.drawerClose}
+            onClick={() => setDrawerOpen(false)}
+            aria-label="Fechar menu"
+          >
+            <IconX size={18} />
+          </button>
+        </div>
+
+        <div className={styles.navScroll}>
+          {groups.map((group, gi) => (
+            <div key={group.title || gi} className={styles.group}>
+              {group.title && <p className={styles.groupTitle}>{group.title}</p>}
+              <ul className={styles.navList}>
+                {group.items.map((link) => (
+                  <li key={`${group.title}-${link.to}`}>
+                    <NavLink
+                      to={link.to}
+                      end={link.end}
+                      className={({ isActive }) => [
+                        link.cta ? styles.navCta : styles.navLink,
+                        isActive ? (link.cta ? styles.navCtaActive : styles.navLinkActive) : '',
+                      ].join(' ')}
+                    >
+                      <span className={styles.navIcon}>{link.icon}</span>
+                      {link.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className={styles.bottomSection} ref={menuRef}>
+          {menuOpen && (
+            <div className={styles.avatarMenu} role="menu">
+              <NavLink to="/profile" className={styles.avatarMenuItem} role="menuitem">
+                <IconUser size={15} />
+                Meu perfil
+              </NavLink>
+              <hr className={styles.avatarMenuDivider} />
+              <button
+                type="button"
+                role="menuitem"
+                className={`${styles.avatarMenuItem} ${styles.avatarMenuLogout}`}
+                onClick={handleLogout}
+              >
+                <IconLogOut size={15} />
+                Sair
+              </button>
             </div>
           )}
-          <div className={styles.userDetails}>
-            <span className={styles.userName}>
-              {user?.display_name || user?.username}
+
+          <button
+            type="button"
+            className={styles.userTrigger}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+          >
+            <Avatar src={user?.avatar_url} name={name} size={34} variant="accent" />
+            <span className={styles.userDetails}>
+              <span className={styles.userName}>{name}</span>
+              <span className={styles.userRole}>{ROLE_LABEL[user?.role] || 'Influenciador'}</span>
             </span>
-            <span className={styles.userRole}>
-              {user?.role === 'admin' ? 'Administrador' : user?.role === 'operacao' ? 'Operação' : 'Influenciador'}
+            <span className={`${styles.chevron} ${menuOpen ? styles.chevronOpen : ''}`}>
+              <IconChevronUp size={14} />
             </span>
-          </div>
-          <span className={`${styles.chevron} ${menuOpen ? styles.chevronOpen : ''}`}>
-            <IconChevronUp />
-          </span>
-        </button>
-      </div>
-    </nav>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }

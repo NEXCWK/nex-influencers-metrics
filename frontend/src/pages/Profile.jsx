@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import api from '../api.js';
+import { PageHeader } from '../components/ui.jsx';
 import styles from './Profile.module.css';
 
 function IconEye() {
@@ -127,7 +128,7 @@ export default function Profile() {
     e.preventDefault();
     setInfoErr('');
     if (!displayName.trim()) {
-      setInfoErr('O nome nao pode ficar em branco.');
+      setInfoErr('O nome não pode ficar em branco.');
       return;
     }
     setSavingInfo(true);
@@ -136,7 +137,7 @@ export default function Profile() {
       updateUser({ display_name: res.data.display_name, bio: res.data.bio });
       setInitialDisplayName(displayName.trim());
       setInitialBio(bio);
-      showToast('Informacoes atualizadas com sucesso');
+      showToast('Informações atualizadas com sucesso');
     } catch (err) {
       setInfoErr(err.response?.data?.error || 'Erro ao salvar.');
     } finally {
@@ -176,7 +177,7 @@ export default function Profile() {
       return;
     }
     if (newPwd !== confirmPwd) {
-      setPwdErr('As senhas nao coincidem.');
+      setPwdErr('As senhas não coincidem.');
       return;
     }
     setSavingPwd(true);
@@ -194,27 +195,29 @@ export default function Profile() {
   const initial = (displayName || user?.username || 'U')[0]?.toUpperCase();
 
   return (
-    <div>
-      <div className="page-header">
-        <h1 className="page-title">Atualizar Perfil</h1>
-      </div>
+    <>
+      <PageHeader
+        title="Meu perfil"
+        subtitle="Sua foto, nome e bio aparecem para a comunidade de influenciadores Nex."
+      />
 
       <div className={styles.grid}>
         {/* Avatar + info */}
         <div className="card">
-          <h2 className="section-title" style={{ marginBottom: 20 }}>Informacoes pessoais</h2>
+          <h2 className="card-title">Informações pessoais</h2>
+          <p className="card-subtitle" style={{ marginBottom: 20 }}>Visíveis no diretório da comunidade.</p>
 
           <div className={styles.avatarRow}>
-            <div className={styles.avatarWrap} onClick={handleAvatarPick} title="Alterar foto">
+            <button type="button" className={styles.avatarWrap} onClick={handleAvatarPick} title="Alterar foto" aria-label="Alterar foto de perfil">
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Foto de perfil" className={styles.avatar} />
               ) : (
-                <div className={styles.avatarFallback}>{initial}</div>
+                <span className={styles.avatarFallback}>{initial}</span>
               )}
-              <div className={styles.avatarOverlay}>
+              <span className={styles.avatarOverlay}>
                 <IconCamera />
-              </div>
-            </div>
+              </span>
+            </button>
             <div>
               <button
                 type="button"
@@ -231,7 +234,7 @@ export default function Profile() {
                 style={{ display: 'none' }}
                 onChange={handleAvatarChange}
               />
-              <p className={styles.hint}>JPG, PNG ou WEBP — ate 5MB</p>
+              <p className={styles.hint}>JPG, PNG ou WEBP — até 5 MB</p>
               {avatarErr && <p className={styles.fieldErr}>{avatarErr}</p>}
             </div>
           </div>
@@ -260,7 +263,7 @@ export default function Profile() {
                 maxLength={280}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                placeholder="Conte um pouco sobre voce..."
+                placeholder="Conte um pouco sobre você..."
                 disabled={loading || savingInfo}
                 style={{ resize: 'vertical' }}
               />
@@ -268,14 +271,15 @@ export default function Profile() {
             </div>
 
             <button type="submit" className="btn btn-primary" disabled={savingInfo || !hasInfoChanges}>
-              {savingInfo ? 'Salvando...' : 'Salvar informacoes'}
+              {savingInfo ? 'Salvando...' : 'Salvar informações'}
             </button>
           </form>
         </div>
 
         {/* Password */}
         <div className="card">
-          <h2 className="section-title" style={{ marginBottom: 20 }}>Alterar senha</h2>
+          <h2 className="card-title">Alterar senha</h2>
+          <p className="card-subtitle" style={{ marginBottom: 20 }}>Use pelo menos 8 caracteres.</p>
           <form onSubmit={handleSavePwd} noValidate>
             {pwdErr && <div className="alert alert-error">{pwdErr}</div>}
 
@@ -291,7 +295,7 @@ export default function Profile() {
                   autoComplete="current-password"
                   disabled={savingPwd}
                 />
-                <button type="button" className={styles.pwdEye} onClick={() => setShowCurrentPwd((v) => !v)} tabIndex={-1}>
+                <button type="button" className={styles.pwdEye} onClick={() => setShowCurrentPwd((v) => !v)} tabIndex={-1} aria-label={showCurrentPwd ? 'Ocultar senha' : 'Mostrar senha'}>
                   {showCurrentPwd ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
@@ -306,11 +310,11 @@ export default function Profile() {
                   className={`form-control ${styles.pwdInput}`}
                   value={newPwd}
                   onChange={(e) => setNewPwd(e.target.value)}
-                  placeholder="Minimo 8 caracteres"
+                  placeholder="Mínimo de 8 caracteres"
                   autoComplete="new-password"
                   disabled={savingPwd}
                 />
-                <button type="button" className={styles.pwdEye} onClick={() => setShowNewPwd((v) => !v)} tabIndex={-1}>
+                <button type="button" className={styles.pwdEye} onClick={() => setShowNewPwd((v) => !v)} tabIndex={-1} aria-label={showNewPwd ? 'Ocultar senha' : 'Mostrar senha'}>
                   {showNewPwd ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
@@ -329,7 +333,7 @@ export default function Profile() {
                   autoComplete="new-password"
                   disabled={savingPwd}
                 />
-                <button type="button" className={styles.pwdEye} onClick={() => setShowConfirmPwd((v) => !v)} tabIndex={-1}>
+                <button type="button" className={styles.pwdEye} onClick={() => setShowConfirmPwd((v) => !v)} tabIndex={-1} aria-label={showConfirmPwd ? 'Ocultar senha' : 'Mostrar senha'}>
                   {showConfirmPwd ? <IconEyeOff /> : <IconEye />}
                 </button>
               </div>
@@ -343,11 +347,11 @@ export default function Profile() {
       </div>
 
       {toast && (
-        <div className={styles.toast}>
+        <div className="toast" role="status">
           <IconCheck />
           {toast}
         </div>
       )}
-    </div>
+    </>
   );
 }
