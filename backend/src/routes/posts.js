@@ -277,6 +277,7 @@ router.post(
 
         createdPosts.push({
           post_id: postId,
+          print_index: i, // lets the client show the matching print while confirming
           title: postRecord.title,
           post_type,
           metrics_extracted: extractionFailed ? null : aiResult,
