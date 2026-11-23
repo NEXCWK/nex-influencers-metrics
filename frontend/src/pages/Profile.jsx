@@ -289,6 +289,9 @@ export default function Profile() {
                 <input
                   id="current_pwd"
                   type={showCurrentPwd ? 'text' : 'password'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className={`form-control ${styles.pwdInput}`}
                   value={currentPwd}
                   onChange={(e) => setCurrentPwd(e.target.value)}
@@ -307,6 +310,9 @@ export default function Profile() {
                 <input
                   id="new_pwd"
                   type={showNewPwd ? 'text' : 'password'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className={`form-control ${styles.pwdInput}`}
                   value={newPwd}
                   onChange={(e) => setNewPwd(e.target.value)}
@@ -327,6 +333,9 @@ export default function Profile() {
                 <input
                   id="confirm_pwd"
                   type={showConfirmPwd ? 'text' : 'password'}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   className={`form-control ${styles.pwdInput}`}
                   value={confirmPwd}
                   onChange={(e) => setConfirmPwd(e.target.value)}

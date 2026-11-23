@@ -79,6 +79,9 @@ export default function ChangePassword() {
             <input
               id="newPassword"
               type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className={styles.input}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -97,6 +100,9 @@ export default function ChangePassword() {
             <input
               id="confirmPassword"
               type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className={styles.input}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

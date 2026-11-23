@@ -172,6 +172,9 @@ export default function Login() {
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className={`${styles.input} ${styles.inputPassword}`}
               value={password}
               onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}

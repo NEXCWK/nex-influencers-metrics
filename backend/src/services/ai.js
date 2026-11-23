@@ -134,6 +134,22 @@ Se houver ambiguidade em algum valor, registre em notes.`;
 
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+// Opus 5 thinks by default, so content[0] is often a `thinking` block with no
+// text — read the text blocks instead, and fail clearly when output was cut.
+function responseText(message) {
+  if (message.stop_reason === 'max_tokens') {
+    throw new Error('AI response was cut off (max_tokens) before the JSON finished');
+  }
+  const text = (message.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+  if (!text.trim()) {
+    throw new Error(`AI returned no text (stop_reason: ${message.stop_reason})`);
+  }
+  return text;
+}
+
 function parseAiJson(rawText) {
   const jsonText = rawText
     .trim()
@@ -179,7 +195,7 @@ async function extractMetricsFromImages(images) {
   const message = await client.messages.create(
     {
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 16000,
       messages: [
         {
           role: 'user',
@@ -190,7 +206,7 @@ async function extractMetricsFromImages(images) {
     { timeout: AI_TIMEOUT_MS }
   );
 
-  return parseAiJson(message.content[0].text);
+  return parseAiJson(responseText(message));
 }
 
 /**
@@ -324,7 +340,7 @@ async function classifyAndExtractBatch(images) {
   const message = await client.messages.create(
     {
       model: MODEL,
-      max_tokens: Math.min(1024 * images.length + 1024, 8192),
+      max_tokens: 16000,
       messages: [
         {
           role: 'user',
@@ -335,7 +351,7 @@ async function classifyAndExtractBatch(images) {
     { timeout: AI_TIMEOUT_MS }
   );
 
-  const parsed = parseAiJson(message.content[0].text);
+  const parsed = parseAiJson(responseText(message));
   const results = Array.isArray(parsed?.results) ? parsed.results : [];
 
   if (results.length !== images.length) {
