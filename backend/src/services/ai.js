@@ -9,16 +9,14 @@ const client = new Anthropic.default({
   maxRetries: 1,
 });
 
-// Opus for maximum visual-reading precision (small numbers/labels on
-// screenshots) — a deliberate accuracy-over-cost tradeoff, requested after
-// Sonnet extractions were missing/misreading metrics.
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
+// Sonnet 5.5 reads the screenshots (chosen by NEX). ANTHROPIC_MODEL, if set
+// on the server, overrides this default.
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 
 // Hard timeout for the extraction call. Must stay well under the frontend's
 // upload timeout so the request always returns: if the AI is slow or the API
 // is overloaded, we fail fast and fall back to manual metric entry instead of
-// leaving the upload hanging until the client gives up. Opus is slower than
-// Sonnet, so this has more headroom than before.
+// leaving the upload hanging until the client gives up.
 const AI_TIMEOUT_MS = 90 * 1000;
 
 function buildExtractionPrompt(imageCount) {
@@ -134,7 +132,7 @@ Se houver ambiguidade em algum valor, registre em notes.`;
 
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-// Opus 5 thinks by default, so content[0] is often a `thinking` block with no
+// Current models think by default, so content[0] is often a `thinking` block with no
 // text — read the text blocks instead, and fail clearly when output was cut.
 function responseText(message) {
   if (message.stop_reason === 'max_tokens') {
