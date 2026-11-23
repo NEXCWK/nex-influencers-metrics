@@ -66,18 +66,18 @@ npm run dev
 
 Todos os usuários são criados via `npm run seed` no backend.
 
-| Username | Perfil | Senha inicial |
-|---|---|---|
-| `felipemoreira` | admin | `nex2026` |
-| `luizamarques` | admin | `nex2026` |
-| `paulapicat` | influencer | `nex2026` |
-| `gabs` | influencer | `nex2026` |
-| `ari` | influencer | `nex2026` |
-| `anabia` | influencer | `nex2026` |
-| `anarusick` | influencer | `nex2026` |
-| `gabi` | influencer | `nex2026` |
+| Username | Perfil |
+|---|---|
+| `felipemoreira` | admin |
+| `luizamarques` | admin |
+| `paulapicat` | influencer |
+| `gabs` | influencer |
+| `ari` | influencer |
+| `anabia` | influencer |
+| `anarusick` | influencer |
+| `gabi` | influencer |
 
-> No primeiro login, o sistema obriga a troca de senha (mínimo 8 caracteres).
+> A senha inicial é passada pelo admin. No primeiro login, o sistema obriga a troca de senha (mínimo 8 caracteres).
 
 ## Setup Supabase
 
