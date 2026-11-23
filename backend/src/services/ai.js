@@ -9,16 +9,14 @@ const client = new Anthropic.default({
   maxRetries: 1,
 });
 
-// Opus for maximum visual-reading precision (small numbers/labels on
-// screenshots) — a deliberate accuracy-over-cost tradeoff, requested after
-// Sonnet extractions were missing/misreading metrics.
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-5';
+// Sonnet 5.5 reads the screenshots (chosen by NEX). ANTHROPIC_MODEL, if set
+// on the server, overrides this default.
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
 
 // Hard timeout for the extraction call. Must stay well under the frontend's
 // upload timeout so the request always returns: if the AI is slow or the API
 // is overloaded, we fail fast and fall back to manual metric entry instead of
-// leaving the upload hanging until the client gives up. Opus is slower than
-// Sonnet, so this has more headroom than before.
+// leaving the upload hanging until the client gives up.
 const AI_TIMEOUT_MS = 90 * 1000;
 
 function buildExtractionPrompt(imageCount) {
@@ -134,6 +132,22 @@ Se houver ambiguidade em algum valor, registre em notes.`;
 
 const SUPPORTED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
+// Current models think by default, so content[0] is often a `thinking` block with no
+// text — read the text blocks instead, and fail clearly when output was cut.
+function responseText(message) {
+  if (message.stop_reason === 'max_tokens') {
+    throw new Error('AI response was cut off (max_tokens) before the JSON finished');
+  }
+  const text = (message.content || [])
+    .filter((b) => b.type === 'text')
+    .map((b) => b.text)
+    .join('');
+  if (!text.trim()) {
+    throw new Error(`AI returned no text (stop_reason: ${message.stop_reason})`);
+  }
+  return text;
+}
+
 function parseAiJson(rawText) {
   const jsonText = rawText
     .trim()
@@ -179,7 +193,7 @@ async function extractMetricsFromImages(images) {
   const message = await client.messages.create(
     {
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 16000,
       messages: [
         {
           role: 'user',
@@ -190,7 +204,7 @@ async function extractMetricsFromImages(images) {
     { timeout: AI_TIMEOUT_MS }
   );
 
-  return parseAiJson(message.content[0].text);
+  return parseAiJson(responseText(message));
 }
 
 /**
@@ -324,7 +338,7 @@ async function classifyAndExtractBatch(images) {
   const message = await client.messages.create(
     {
       model: MODEL,
-      max_tokens: Math.min(1024 * images.length + 1024, 8192),
+      max_tokens: 16000,
       messages: [
         {
           role: 'user',
@@ -335,7 +349,7 @@ async function classifyAndExtractBatch(images) {
     { timeout: AI_TIMEOUT_MS }
   );
 
-  const parsed = parseAiJson(message.content[0].text);
+  const parsed = parseAiJson(responseText(message));
   const results = Array.isArray(parsed?.results) ? parsed.results : [];
 
   if (results.length !== images.length) {

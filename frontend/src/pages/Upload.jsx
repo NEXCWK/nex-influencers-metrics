@@ -98,7 +98,7 @@ export default function Upload() {
 
       const res = await api.post('/posts/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 150000, // headroom: storage uploads + bounded AI extraction (90s)
+        timeout: 240000, // AI call is 90s and may be retried once (2×90s) + storage uploads
       });
 
       const { posts: createdPosts, ai_error } = res.data;

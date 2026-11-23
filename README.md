@@ -17,7 +17,7 @@ Plataforma interna do Nex Coworking para gerenciamento e visualização de métr
 | Frontend | React 18 + Vite |
 | Banco de dados | Supabase (PostgreSQL) |
 | Storage | Supabase Storage |
-| IA | Anthropic Claude (claude-sonnet-4-20250514) |
+| IA | Anthropic Claude Sonnet 5.5 (claude-sonnet-5-5) |
 | Deploy | Railway |
 
 ## Setup Local
